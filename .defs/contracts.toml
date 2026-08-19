@@ -65,7 +65,7 @@ A stale expected_parent on an unchanged upload must not masquerade as a \
 successful publication or return an unrelated current OID as if a commit \
 were created."""
 date = "2026-08-19"
-check = "uv run pytest -q tests/test_io.py::test_commit_noop_when_oid_matches_expected_parent tests/test_io.py::test_commit_noop_abbreviated_parent_matches_full_oid tests/test_io.py::test_commit_rejects_stale_parent_noop tests/test_io.py::test_commit_race_noop_after_external_advance tests/test_io.py::test_commit_pr_noop_when_parent_older_than_head"
+check = "uv run pytest -q tests/test_io.py::test_commit_noop_when_oid_matches_expected_parent tests/test_io.py::test_commit_noop_abbreviated_parent_matches_full_oid tests/test_io.py::test_commit_rejects_stale_parent_noop tests/test_io.py::test_commit_race_noop_after_external_advance tests/test_io.py::test_commit_pr_noop_when_parent_older_than_head tests/test_io_sdk_commit.py"
 terms = ["hub commit", "expected parent commit", "dataset commit result"]
 
 [[contracts]]
