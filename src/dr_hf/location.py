@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Annotated, ClassVar
+from urllib.parse import quote
 
 from pydantic import BaseModel, Field, HttpUrl, computed_field, field_validator
 
@@ -215,7 +216,10 @@ class HFLocation(BaseModel):
         assert not self._is_dir(path), (
             "Download link only supports files, not directories."
         )
-        return HttpUrl(f"{self.repo_link}/resolve/{revision}/{path}")
+        encoded_revision = quote(revision, safe="")
+        return HttpUrl(
+            f"{self.repo_link}/resolve/{encoded_revision}/{path}"
+        )
 
     def get_uris_for_files(
         self,

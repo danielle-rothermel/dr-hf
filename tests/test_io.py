@@ -320,7 +320,7 @@ def test_commit_maps_pr_fields(
     assert result.pr_revision == "refs/pr/7"
     assert str(result.pr_url).endswith("/discussions/7")
     assert str(result.file_urls["data/file.parquet"]).endswith(
-        "/resolve/refs/pr/7/data/file.parquet"
+        "/resolve/refs%2Fpr%2F7/data/file.parquet"
     )
 
 
