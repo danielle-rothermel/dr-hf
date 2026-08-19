@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from pydantic import BaseModel, HttpUrl, computed_field
+from pydantic import BaseModel, ConfigDict, HttpUrl, computed_field
 
 
 class BranchInfo(BaseModel):
@@ -172,6 +172,8 @@ class ParameterEstimate(BaseModel):
 
 
 class ArchitectureInfo(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     hidden_size: int | None = None
     num_layers: int | None = None
     num_attention_heads: int | None = None
@@ -257,6 +259,8 @@ class CheckpointAnalysis(BaseModel):
 
 
 class CheckpointSummaryRow(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     branch: str
     step: int
     optimizer_available: bool = False
