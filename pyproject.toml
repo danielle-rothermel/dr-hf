@@ -1,6 +1,6 @@
 [project]
 name = "dr-hf"
-version = "0.1.0"
+version = "0.1.1"
 description = "HuggingFace utilities for repository management, dataset operations, and model analysis"
 readme = "README.md"
 license = "MIT"
@@ -17,13 +17,14 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Typing :: Typed",
 ]
 dependencies = [
-    "huggingface_hub>=0.20.0",
+    "huggingface_hub>=0.24.0",
     "datasets>=2.0.0",
-    "pandas>=2.0.0",
+    "pandas>=2.1.1",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
 ]
@@ -34,15 +35,18 @@ duckdb = ["duckdb>=0.9.0"]
 all = ["torch>=2.0.0", "safetensors>=0.4.0", "duckdb>=0.9.0"]
 
 [project.urls]
-Homepage = "https://github.com/drothermel/dr_hf"
-Repository = "https://github.com/drothermel/dr_hf"
+Repository = "https://github.com/danielle-rothermel/dr-hf"
+Issues = "https://github.com/danielle-rothermel/dr-hf/issues"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.31.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.build.targets.sdist]
+only-include = ["src"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dr_hf"]
@@ -51,22 +55,88 @@ packages = ["src/dr_hf"]
 dev = [
     "duckdb>=0.9.0",
     "pdoc>=16.0.0",
-    "pytest>=8.4.1",
-    "ruff>=0.9.0",
+    "pre-commit>=4.6.0",
+    "pytest>=9.1.1",
+    "ruff>=0.15.18",
     "safetensors>=0.4.0",
     "torch>=2.0.0",
-    "ty>=0.0.14",
+    "ty>=0.0.51",
 ]
 
+[tool.uv]
+required-version = "==0.11.25"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.ruff]
-include = [
-    "src/**/*.py",
-    "tests/**/*.py",
-]
-line-length = 88
+include = ["src/**/*.py", "tests/**/*.py"]
+line-length = 79
 cache-dir = ".ruff_cache"
 exclude = ["outputs/*", "notebooks/*", "data/*"]
 
 [tool.ruff.format]
 indent-style = "space"
 quote-style = "double"
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "ARG",
+    "ASYNC",
+    "B",
+    "BLE",
+    "C4",
+    "DTZ",
+    "E",
+    "F",
+    "FA",
+    "FBT",
+    "FLY",
+    "FURB",
+    "G",
+    "I",
+    "ICN",
+    "ISC",
+    "LOG",
+    "N",
+    "NPY",
+    "PD",
+    "PERF",
+    "PIE",
+    "PL",
+    "PTH",
+    "PT",
+    "RET",
+    "RSE",
+    "RUF",
+    "S",
+    "SIM",
+    "SLOT",
+    "T10",
+    "TC",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+    "YTT",
+]
+ignore = ["PLR1711", "S101", "TRY003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["PLR2004", "PLC0415", "S106", "ARG001"]
+"src/dr_hf/io.py" = ["PLC2701"]
+"src/dr_hf/__init__.py" = ["PLC0415"]
+"src/dr_hf/_torch.py" = ["PLC0415", "PLW0603"]
+"src/dr_hf/models.py" = ["TC003"]
+"src/dr_hf/configs.py" = ["BLE001", "TRY300"]
+"src/dr_hf/checkpoints.py" = ["BLE001", "FBT001", "FBT002", "TRY300"]
+"src/dr_hf/datasets.py" = ["FBT001", "FBT002"]
+"src/dr_hf/location.py" = ["FBT001", "FBT002"]
+"src/dr_hf/weights.py" = ["BLE001", "FBT001", "FBT002", "TRY300", "SIM118"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-decorators = ["dataclasses.dataclass"]
+
+[tool.ty.src]
+include = ["src", "tests"]

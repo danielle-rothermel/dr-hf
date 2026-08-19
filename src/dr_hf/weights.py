@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import importlib
 import logging
-import os
 import random
 import re
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from huggingface_hub import hf_hub_download, list_repo_files
@@ -24,22 +26,19 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-_safetensors_available: bool = False
 
-
+@lru_cache(maxsize=1)
 def _check_safetensors() -> bool:
-    global _safetensors_available
     try:
-        from safetensors import safe_open  # noqa: F401
-
-        _safetensors_available = True
+        importlib.import_module("safetensors")
     except ImportError:
-        _safetensors_available = False
-    return _safetensors_available
+        return False
+    else:
+        return True
 
 
 def _check_pytorch_version_for_weights_only() -> bool:
-    """Check if PyTorch version is >= 2.6.0, which supports weights_only=True."""
+    """Check PyTorch >= 2.6.0 for weights_only=True support."""
     torch = get_torch()
     version_str = torch.__version__
     # Handle version strings like "2.6.0" or "2.6.0+cu118"
@@ -47,35 +46,46 @@ def _check_pytorch_version_for_weights_only() -> bool:
     try:
         major = int(version_parts[0])
         minor = int(version_parts[1]) if len(version_parts) > 1 else 0
-        return (major, minor) >= (2, 6)
     except (ValueError, IndexError):
         # If version parsing fails, assume it's too old to be safe
         return False
+    else:
+        return (major, minor) >= (2, 6)
 
 
-def discover_model_weight_files(repo_id: str, branch: str = "main") -> list[str]:
+def _require_pytorch_for_bin_weights() -> None:
+    """Raise if PyTorch is too old for safe .bin weight loading."""
+    if _check_pytorch_version_for_weights_only():
+        return
+    torch = get_torch()
+    raise RuntimeError(
+        "PyTorch >= 2.6.0 is required for safe loading of .bin weight "
+        f"files. Current version: {torch.__version__}. "
+        "Please upgrade PyTorch or use .safetensors files instead."
+    )
+
+
+def discover_model_weight_files(
+    repo_id: str, branch: str = "main"
+) -> list[str]:
     try:
         all_files = list_repo_files(repo_id=repo_id, revision=branch)
-
+    except Exception:
+        return []
+    else:
         weight_patterns = [
             "pytorch_model.bin",
             "model.safetensors",
             "pytorch_model-00001-of-00001.bin",
         ]
-
-        weight_files = []
-        for file in all_files:
-            if any(pattern in file for pattern in weight_patterns):
-                weight_files.append(file)
-            elif ("pytorch_model-" in file and file.endswith(".bin")) or file.endswith(
-                ".safetensors"
-            ):
-                weight_files.append(file)
-
+        weight_files = [
+            file
+            for file in all_files
+            if any(pattern in file for pattern in weight_patterns)
+            or ("pytorch_model-" in file and file.endswith(".bin"))
+            or file.endswith(".safetensors")
+        ]
         return sorted(weight_files)
-
-    except Exception:
-        return []
 
 
 def download_model_weights(
@@ -83,7 +93,10 @@ def download_model_weights(
 ) -> tuple[str | None, bool, str]:
     try:
         file_path = hf_hub_download(
-            repo_id=repo_id, filename=filename, revision=branch, local_dir=local_dir
+            repo_id=repo_id,
+            filename=filename,
+            revision=branch,
+            local_dir=local_dir,
         )
         return file_path, True, ""
     except Exception as e:
@@ -105,7 +118,7 @@ def calculate_weight_statistics(weight_path: str) -> WeightFileStatistics:
                     num_tensors=0,
                     error="safetensors library not available",
                 )
-            from safetensors import safe_open
+            safe_open = importlib.import_module("safetensors").safe_open
 
             weights: dict[str, Any] = {}
             with safe_open(weight_path, framework="pt") as f:
@@ -114,13 +127,10 @@ def calculate_weight_statistics(weight_path: str) -> WeightFileStatistics:
         else:
             # Use weights_only=True for security (requires PyTorch >= 2.6.0)
             # Safetensors remains the preferred path (checked first above)
-            if not _check_pytorch_version_for_weights_only():
-                raise RuntimeError(
-                    f"PyTorch >= 2.6.0 is required for safe loading of .bin weight files. "
-                    f"Current version: {torch.__version__}. "
-                    f"Please upgrade PyTorch or use .safetensors files instead."
-                )
-            weights = torch.load(weight_path, map_location="cpu", weights_only=True)
+            _require_pytorch_for_bin_weights()
+            weights = torch.load(
+                weight_path, map_location="cpu", weights_only=True
+            )
 
         if not isinstance(weights, dict):
             return WeightFileStatistics(
@@ -145,7 +155,10 @@ def calculate_weight_statistics(weight_path: str) -> WeightFileStatistics:
                         dtype=str(tensor.dtype),
                         parameters=tensor_params,
                         size_mb=round(
-                            tensor.numel() * tensor.element_size() / (1024 * 1024), 3
+                            tensor.numel()
+                            * tensor.element_size()
+                            / (1024 * 1024),
+                            3,
                         ),
                         statistics=calculate_tensor_stats(tensor),
                     )
@@ -153,7 +166,9 @@ def calculate_weight_statistics(weight_path: str) -> WeightFileStatistics:
 
         return WeightFileStatistics(
             file_path=weight_path,
-            file_size_mb=round(os.path.getsize(weight_path) / (1024 * 1024), 2),
+            file_size_mb=round(
+                Path(weight_path).stat().st_size / (1024 * 1024), 2
+            ),
             num_tensors=len(weights),
             tensor_info=tensor_infos,
             parameter_stats=ParameterStats(total_parameters=total_params),
@@ -166,7 +181,7 @@ def calculate_weight_statistics(weight_path: str) -> WeightFileStatistics:
             file_path=weight_path,
             file_size_mb=0.0,
             num_tensors=0,
-            error=f"Failed to analyze weights: {str(e)}",
+            error=f"Failed to analyze weights: {e!s}",
         )
 
 
@@ -176,14 +191,16 @@ def calculate_tensor_stats(tensor: Any) -> TensorStats | None:
     try:
         flat_tensor = tensor.flatten().float()
 
-        stats = TensorStats(
+        return TensorStats(
             mean=float(torch.mean(flat_tensor)),
             std=float(torch.std(flat_tensor)),
             min=float(torch.min(flat_tensor)),
             max=float(torch.max(flat_tensor)),
             median=float(torch.median(flat_tensor)),
             abs_mean=float(torch.mean(torch.abs(flat_tensor))),
-            zero_fraction=float(torch.sum(flat_tensor == 0.0) / flat_tensor.numel()),
+            zero_fraction=float(
+                torch.sum(flat_tensor == 0.0) / flat_tensor.numel()
+            ),
             percentile_25=float(torch.quantile(flat_tensor, 0.25)),
             percentile_75=float(torch.quantile(flat_tensor, 0.75)),
             percentile_90=float(torch.quantile(flat_tensor, 0.90)),
@@ -191,8 +208,7 @@ def calculate_tensor_stats(tensor: Any) -> TensorStats | None:
             percentile_99=float(torch.quantile(flat_tensor, 0.99)),
         )
 
-        return stats
-    except Exception:
+    except (RuntimeError, ValueError, TypeError):
         return None
 
 
@@ -236,7 +252,7 @@ def analyze_layer_structure(weights: dict[str, Any]) -> LayerAnalysis:
             categorization.other_layers.append(name)
 
     transformer_layers: set[int] = set()
-    for name in weights.keys():
+    for name in weights:
         layer_matches = re.findall(r"(?:layer|h)\.(\d+)\.", name.lower())
         if layer_matches:
             transformer_layers.update(int(match) for match in layer_matches)
@@ -247,13 +263,15 @@ def analyze_layer_structure(weights: dict[str, Any]) -> LayerAnalysis:
     return LayerAnalysis(
         layer_categorization=categorization,
         layer_counts=counts,
-        transformer_layer_indices=sorted(list(transformer_layers))
+        transformer_layer_indices=sorted(transformer_layers)
         if transformer_layers
         else [],
     )
 
 
-def calculate_global_weight_stats(weights: dict[str, Any]) -> GlobalWeightStats | None:
+def calculate_global_weight_stats(  # noqa: PLR0912, PLR0915
+    weights: dict[str, Any],
+) -> GlobalWeightStats | None:
     torch = get_torch()
 
     try:
@@ -300,9 +318,8 @@ def calculate_global_weight_stats(weights: dict[str, Any]) -> GlobalWeightStats 
             # Update zero count
             zero_count += int(torch.sum(flat_tensor == 0.0))
 
-            # Welford's algorithm for incremental mean/variance (batch update per tensor)
-            # Batch update formula: for chunk with n elements and mean m,
-            # new_mean = (old_count * old_mean + n * chunk_mean) / (old_count + n)
+            # Welford's algorithm for incremental mean/variance
+            # Batch update: new_mean = (old_count * old_mean + n * m) / n_total
             chunk_mean = float(torch.mean(flat_tensor))
             chunk_count = tensor_size
 
@@ -310,26 +327,24 @@ def calculate_global_weight_stats(weights: dict[str, Any]) -> GlobalWeightStats 
             new_count = count + chunk_count
             if new_count > 0:
                 # Batch update for mean
-                new_mean = (count * mean + chunk_count * chunk_mean) / new_count
+                new_mean = (
+                    count * mean + chunk_count * chunk_mean
+                ) / new_count
 
-                # For variance update, we need to account for the change in mean
-                # Using the combined variance formula for two groups
+                # Combined variance formula for two groups
                 chunk_variance = float(torch.var(flat_tensor, unbiased=False))
                 if chunk_count > 0:
-                    # Combined variance: m2_total = m2_old + m2_chunk + count*chunk_count*(old_mean - chunk_mean)^2 / (count + chunk_count)
+                    # m2_total combines old m2, chunk variance, and mean delta
                     delta_mean = chunk_mean - mean
                     m2 += chunk_count * (
-                        chunk_variance + delta_mean * delta_mean * count / new_count
+                        chunk_variance
+                        + delta_mean * delta_mean * count / new_count
                     )
                     mean = new_mean
                     count = new_count
 
-            # Reservoir sampling for percentiles
-            # Process elements sequentially to maintain uniform sampling property
-            # For very large tensors, process in chunks to avoid memory issues
-            chunk_size = (
-                100000  # Process 100k elements at a time for reservoir sampling
-            )
+            # Reservoir sampling for percentiles (chunked for large tensors)
+            chunk_size = 100000
 
             for i in range(0, tensor_size, chunk_size):
                 end_idx = min(i + chunk_size, tensor_size)
@@ -341,8 +356,10 @@ def calculate_global_weight_stats(weights: dict[str, Any]) -> GlobalWeightStats 
                         # Fill reservoir initially
                         reservoir_samples.append(float(value))
                     else:
-                        # Replace with probability reservoir_size / reservoir_count
-                        replace_idx = random.randint(0, reservoir_count - 1)
+                        # Replace with prob. reservoir_size / reservoir_count
+                        replace_idx = random.randint(  # noqa: S311
+                            0, reservoir_count - 1
+                        )
                         if replace_idx < reservoir_size:
                             reservoir_samples[replace_idx] = float(value)
 
@@ -351,8 +368,10 @@ def calculate_global_weight_stats(weights: dict[str, Any]) -> GlobalWeightStats 
 
         # Compute final statistics
         global_mean = mean
-        # Population std: sqrt(m2 / count), sample std would be sqrt(m2 / (count - 1))
-        global_std = float(torch.sqrt(torch.tensor(m2 / count))) if m2 > 0 else 0.0
+        # Population std: sqrt(m2 / count)
+        global_std = (
+            float(torch.sqrt(torch.tensor(m2 / count))) if m2 > 0 else 0.0
+        )
 
         global_abs_mean = abs_sum / count
         global_zero_fraction = zero_count / count
@@ -360,7 +379,9 @@ def calculate_global_weight_stats(weights: dict[str, Any]) -> GlobalWeightStats 
         # Compute percentiles from reservoir sample
         percentile_values = {}
         if reservoir_samples:
-            reservoir_tensor = torch.tensor(reservoir_samples, dtype=torch.float32)
+            reservoir_tensor = torch.tensor(
+                reservoir_samples, dtype=torch.float32
+            )
             for p in [0.01, 0.05, 0.25, 0.50, 0.75, 0.95, 0.99]:
                 percentile_key = f"percentile_{int(p * 100)}"
                 percentile_values[f"global_{percentile_key}"] = float(
@@ -387,7 +408,7 @@ def calculate_global_weight_stats(weights: dict[str, Any]) -> GlobalWeightStats 
             global_percentile_95=percentile_values.get("global_percentile_95"),
             global_percentile_99=percentile_values.get("global_percentile_99"),
         )
-    except Exception:
+    except (RuntimeError, ValueError, TypeError):
         return None
 
 
@@ -428,7 +449,9 @@ def analyze_model_weights(
                 if file_stats.error is None:
                     successful_analyses += 1
                     if file_stats.parameter_stats:
-                        total_params += file_stats.parameter_stats.total_parameters
+                        total_params += (
+                            file_stats.parameter_stats.total_parameters
+                        )
                     total_size_mb += file_stats.file_size_mb
             else:
                 file_analyses[weight_file] = WeightFileStatistics(
@@ -453,6 +476,10 @@ def analyze_model_weights(
         if delete_after_analysis and downloaded_files:
             for file_path in downloaded_files:
                 try:
-                    os.remove(file_path)
-                except Exception as e:
-                    logger.warning(f"Failed to remove downloaded file {file_path}: {e}")
+                    Path(file_path).unlink()
+                except OSError as e:
+                    logger.warning(
+                        "Failed to remove downloaded file %s: %s",
+                        file_path,
+                        e,
+                    )

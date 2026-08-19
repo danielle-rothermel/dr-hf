@@ -46,14 +46,20 @@ def test_extract_step_from_branch() -> None:
 
 def test_extract_seed_from_branch() -> None:
     assert extract_seed_from_branch("step1000-seed-default") == "default"
-    assert extract_seed_from_branch("step0-seed-custom-config") == "custom-config"
+    assert (
+        extract_seed_from_branch("step0-seed-custom-config") == "custom-config"
+    )
     assert extract_seed_from_branch("main") == "unknown"
 
 
 def test_sort_branches_by_step() -> None:
     branches = ["step1000-seed-a", "step0-seed-a", "step500-seed-a"]
     sorted_branches = sort_branches_by_step(branches)
-    assert sorted_branches == ["step0-seed-a", "step500-seed-a", "step1000-seed-a"]
+    assert sorted_branches == [
+        "step0-seed-a",
+        "step500-seed-a",
+        "step1000-seed-a",
+    ]
 
 
 def test_group_branches_by_seed() -> None:

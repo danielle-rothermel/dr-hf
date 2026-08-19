@@ -29,10 +29,20 @@ def test_hflocation_from_uri_simple() -> None:
 
 
 def test_hflocation_from_uri_with_path() -> None:
-    loc = HFLocation.from_uri("hf://datasets/allenai/test-dataset/data/train.parquet")
+    loc = HFLocation.from_uri(
+        "hf://datasets/allenai/test-dataset/data/train.parquet"
+    )
     assert loc.org == "allenai"
     assert loc.repo_name == "test-dataset"
     assert loc.filepaths == ["data/train.parquet"]
+
+
+def test_hflocation_from_uri_filepaths_keyword_only() -> None:
+    with pytest.raises(TypeError):
+        HFLocation.from_uri(
+            "hf://datasets/allenai/test-dataset",
+            ["data/train.parquet"],  # ty: ignore[too-many-positional-arguments]
+        )
 
 
 def test_hflocation_from_uri_invalid() -> None:
@@ -58,3 +68,22 @@ def test_hflocation_get_path_uri() -> None:
     loc = HFLocation(org="allenai", repo_name="test-dataset")
     uri = loc.get_path_uri("data/train.parquet")
     assert uri == "hf://datasets/allenai/test-dataset/data/train.parquet"
+
+
+def test_hflocation_resolve_link_encodes_revision_segment() -> None:
+    loc = HFLocation(org="test-org", repo_name="test-dataset")
+    pr_url = loc.get_file_download_link_for_revision(
+        "data/file.parquet",
+        "refs/pr/7",
+    )
+    assert str(pr_url).endswith(
+        "/resolve/refs%2Fpr%2F7/data/file.parquet"
+    )
+
+    branch_url = loc.get_file_download_link_for_revision(
+        "data/file.parquet",
+        "feature/data",
+    )
+    assert str(branch_url).endswith(
+        "/resolve/feature%2Fdata/data/file.parquet"
+    )

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from datasets import Dataset, load_dataset
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +20,10 @@ def load_or_download_dataset(
 
 
 def download_dataset(
-    path: Path, repo_id: str, split: str = "train", force_reload: bool = False
+    path: Path,
+    repo_id: str,
+    split: str = "train",
+    force_reload: bool = False,
 ) -> None:
     if force_reload or not path.exists():
         try:
@@ -25,12 +31,15 @@ def download_dataset(
             path.parent.mkdir(parents=True, exist_ok=True)
             raw_ds.to_parquet(path)
         except Exception as e:
-            logger.error(
-                f"Failed to download dataset: repo_id={repo_id}, split={split}, path={path}",
-                exc_info=True,
+            logger.exception(
+                "Failed to download dataset: repo_id=%s, split=%s, path=%s",
+                repo_id,
+                split,
+                path,
             )
             raise RuntimeError(
-                f"Failed to download dataset '{repo_id}' (split='{split}') to {path}"
+                f"Failed to download dataset '{repo_id}' "
+                f"(split='{split}') to {path}"
             ) from e
 
 

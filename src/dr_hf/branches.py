@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from huggingface_hub import list_repo_refs
 
-from .models import BranchInfo, BranchMetadata, SeedBranchInfo, SeedConfiguration
+from .models import (
+    BranchInfo,
+    BranchMetadata,
+    SeedBranchInfo,
+    SeedConfiguration,
+)
 
 CHECKPOINT_BRANCH_RE = re.compile(r"^step\d+-seed-.+$")
 
@@ -105,7 +110,7 @@ def create_branch_metadata(repo_id: str) -> BranchMetadata:
 
     return BranchMetadata(
         repo_id=repo_id,
-        last_updated=datetime.now(timezone.utc),
+        last_updated=datetime.now(UTC),
         total_branches=len(all_branches),
         checkpoint_branches=len(checkpoint_branches),
         seed_configurations=seed_configurations,

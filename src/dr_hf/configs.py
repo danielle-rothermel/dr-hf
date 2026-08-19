@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from huggingface_hub import hf_hub_download
@@ -28,14 +29,16 @@ def download_config_file(
 
 def analyze_model_config(config_path: str) -> ConfigAnalysis:
     try:
-        with open(config_path, encoding="utf-8") as f:
+        with Path(config_path).open(encoding="utf-8") as f:
             config = json.load(f)
 
         return ConfigAnalysis(
             available=True,
             raw_config=config,
             architecture_info=extract_model_architecture_info(config),
-            config_keys=list(config.keys()) if isinstance(config, dict) else [],
+            config_keys=list(config.keys())
+            if isinstance(config, dict)
+            else [],
             config_type=type(config).__name__,
         )
 
@@ -43,7 +46,9 @@ def analyze_model_config(config_path: str) -> ConfigAnalysis:
         return ConfigAnalysis(available=False, error=str(e))
 
 
-def extract_model_architecture_info(config: dict[str, Any]) -> ArchitectureInfo:
+def extract_model_architecture_info(
+    config: dict[str, Any],
+) -> ArchitectureInfo:
     arch_fields = {
         "hidden_size": ["hidden_size", "d_model", "n_embd"],
         "num_layers": ["num_hidden_layers", "n_layer", "num_layers"],
@@ -59,7 +64,11 @@ def extract_model_architecture_info(config: dict[str, Any]) -> ArchitectureInfo:
         "model_type": ["model_type", "architectures"],
         "activation_function": ["hidden_act", "activation_function"],
         "layer_norm_eps": ["layer_norm_eps", "layer_norm_epsilon"],
-        "dropout": ["hidden_dropout_prob", "dropout", "attention_probs_dropout_prob"],
+        "dropout": [
+            "hidden_dropout_prob",
+            "dropout",
+            "attention_probs_dropout_prob",
+        ],
         "pad_token_id": ["pad_token_id"],
         "eos_token_id": ["eos_token_id"],
         "bos_token_id": ["bos_token_id"],
@@ -73,7 +82,9 @@ def extract_model_architecture_info(config: dict[str, Any]) -> ArchitectureInfo:
                 break
 
     estimated_parameters = None
-    if all(k in extracted for k in ["hidden_size", "num_layers", "vocab_size"]):
+    if all(
+        k in extracted for k in ["hidden_size", "num_layers", "vocab_size"]
+    ):
         estimated_parameters = estimate_parameter_count(
             hidden_size=extracted["hidden_size"],
             num_layers=extracted["num_layers"],

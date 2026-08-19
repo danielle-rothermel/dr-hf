@@ -78,7 +78,9 @@ def _parse_optimizer_component(
 def _parse_learning_rate_info(checkpoint: dict[str, Any]) -> LearningRateInfo:
     lr_info = LearningRateInfo()
 
-    if "param_groups" in checkpoint and isinstance(checkpoint["param_groups"], list):
+    if "param_groups" in checkpoint and isinstance(
+        checkpoint["param_groups"], list
+    ):
         for i, group in enumerate(checkpoint["param_groups"]):
             if isinstance(group, dict):
                 group_info = ParamGroupInfo(
@@ -102,7 +104,7 @@ def _parse_learning_rate_info(checkpoint: dict[str, Any]) -> LearningRateInfo:
 
 
 def _check_pytorch_version_for_weights_only() -> bool:
-    """Check if PyTorch version is >= 2.6.0, which supports weights_only=True."""
+    """Check PyTorch >= 2.6.0 for weights_only=True support."""
     torch = get_torch()
     version_str = torch.__version__
     # Handle version strings like "2.6.0" or "2.6.0+cu118"
@@ -110,10 +112,11 @@ def _check_pytorch_version_for_weights_only() -> bool:
     try:
         major = int(version_parts[0])
         minor = int(version_parts[1]) if len(version_parts) > 1 else 0
-        return (major, minor) >= (2, 6)
     except (ValueError, IndexError):
         # If version parsing fails, assume it's too old to be safe
         return False
+    else:
+        return (major, minor) >= (2, 6)
 
 
 def analyze_optimizer_checkpoint(checkpoint_path: str) -> OptimizerAnalysis:
@@ -123,8 +126,8 @@ def analyze_optimizer_checkpoint(checkpoint_path: str) -> OptimizerAnalysis:
     This function loads and analyzes optimizer checkpoint files. Note that
     optimizer checkpoint files must be trusted as torch.load() can execute
     arbitrary code. For PyTorch >= 2.6, this function uses weights_only=True
-    to mitigate code execution risks. For older PyTorch versions, the checkpoint
-    is loaded without this protection.
+    to mitigate code execution risks. For older PyTorch versions, the
+    checkpoint is loaded without this protection.
 
     It is recommended that optimizer checkpoints be saved as state_dicts to
     avoid code execution risks.
@@ -145,11 +148,12 @@ def analyze_optimizer_checkpoint(checkpoint_path: str) -> OptimizerAnalysis:
             )
         else:
             logger.warning(
-                f"PyTorch version {torch.__version__} < 2.6.0 does not support "
+                "PyTorch version %s < 2.6.0 does not support "
                 "weights_only=True. Loading optimizer checkpoint without this "
                 "protection. Optimizer checkpoint files must be trusted as "
                 "torch.load() can execute arbitrary code. Consider upgrading "
-                "PyTorch or ensuring checkpoints are saved as state_dicts."
+                "PyTorch or ensuring checkpoints are saved as state_dicts.",
+                torch.__version__,
             )
             checkpoint = torch.load(checkpoint_path, map_location="cpu")
 
@@ -184,16 +188,20 @@ def analyze_complete_checkpoint(
 ) -> CheckpointAnalysis:
     components = CheckpointComponents()
 
-    optimizer_path, optimizer_success, optimizer_error = download_optimizer_checkpoint(
-        repo_id, branch
+    optimizer_path, optimizer_success, optimizer_error = (
+        download_optimizer_checkpoint(repo_id, branch)
     )
 
     if optimizer_success and optimizer_path:
         components.optimizer = analyze_optimizer_checkpoint(optimizer_path)
     else:
-        components.optimizer = OptimizerAnalysis(available=False, error=optimizer_error)
+        components.optimizer = OptimizerAnalysis(
+            available=False, error=optimizer_error
+        )
 
-    config_path, config_success, config_error = download_config_file(repo_id, branch)
+    config_path, config_success, config_error = download_config_file(
+        repo_id, branch
+    )
 
     if config_success and config_path:
         components.config = analyze_model_config(config_path)
@@ -220,7 +228,10 @@ def process_single_checkpoint(
 ) -> tuple[str, CheckpointAnalysis]:
     try:
         analysis = analyze_complete_checkpoint(
-            repo_id, branch, include_weights, delete_weights_after=delete_weights_after
+            repo_id,
+            branch,
+            include_weights,
+            delete_weights_after=delete_weights_after,
         )
         return branch, analysis
 
@@ -302,7 +313,9 @@ def create_learning_rate_summary(
     ]
 
     return (
-        comprehensive_df[lr_columns] if not comprehensive_df.empty else comprehensive_df
+        comprehensive_df[lr_columns]
+        if not comprehensive_df.empty
+        else comprehensive_df
     )
 
 
@@ -318,7 +331,7 @@ def save_checkpoint_analysis(
     else:
         filepath = Path(filename)
 
-    with open(filepath, "w") as f:
+    with filepath.open("w", encoding="utf-8") as f:
         json.dump(analysis.model_dump(), f, indent=2, default=str)
 
     return str(filepath)
@@ -330,7 +343,9 @@ def save_all_analyses_outputs(
     if output_dir:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
-        comprehensive_csv_path = output_path / "comprehensive_checkpoint_summary.csv"
+        comprehensive_csv_path = (
+            output_path / "comprehensive_checkpoint_summary.csv"
+        )
         lr_csv_path = output_path / "learning_rate_summary.csv"
         json_path = output_path / "all_checkpoint_analyses.json"
     else:
@@ -353,7 +368,7 @@ def save_all_analyses_outputs(
         lr_csv_path_str = None
 
     serializable = {k: v.model_dump() for k, v in all_analyses.items()}
-    with open(json_path, "w") as f:
+    with json_path.open("w", encoding="utf-8") as f:
         json.dump(serializable, f, indent=2, default=str)
 
     return comprehensive_csv_path_str, lr_csv_path_str, str(json_path)

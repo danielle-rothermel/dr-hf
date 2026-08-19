@@ -1,0 +1,74 @@
+#:schema ./terms.schema.json
+
+[[terms]]
+name = "dataset artifact"
+definition = """
+A local regular file the caller prepares for publication to a Hugging Face \
+dataset repository. dr-hf validates that each artifact exists and is a file \
+before any remote mutation."""
+categories = ["dataset publishing"]
+part_of = ["dataset file commit entry"]
+
+[[terms]]
+name = "repository path"
+definition = """
+A relative normalized POSIX path within a Hugging Face repository where one \
+dataset artifact is published. Absolute paths and path segments containing \
+'..' are rejected."""
+categories = ["dataset publishing", "hub"]
+part_of = ["dataset file commit entry"]
+
+[[terms]]
+name = "hub commit"
+definition = """
+One atomic mutation of a Hugging Face repository performed through \
+HfApi.create_commit. All files in one publication share a single commit."""
+exported_symbols = ["commit_dataset_files_to_hf"]
+categories = ["hub", "dataset publishing"]
+
+[[terms]]
+name = "revision"
+definition = """
+A non-empty branch, tag, or pull-request ref naming the target state in a \
+Hugging Face repository for a hub commit."""
+categories = ["hub", "dataset publishing"]
+part_of = ["hub commit"]
+
+[[terms]]
+name = "expected parent commit"
+definition = """
+The non-empty OID the caller observed before publication. For direct hub \
+commits, dr-hf forwards it as parent_commit so the Hub can reject stale \
+concurrent writes. For pull-request publication, it names the PR base only \
+and does not assert that the target branch is unchanged."""
+categories = ["hub", "dataset publishing"]
+part_of = ["hub commit"]
+
+[[terms]]
+name = "HF location"
+definition = """
+The dataset repository target for a hub commit: organization, repository \
+name, and repo type. It supplies repo_id and resolve URLs for published \
+files."""
+exported_symbols = ["HFLocation", "HFRepoID", "HFResource"]
+categories = ["location", "dataset publishing"]
+part_of = ["hub commit"]
+
+[[terms]]
+name = "dataset file commit entry"
+definition = """
+One pair of a dataset artifact and the repository path where it is \
+published. Each entry becomes one CommitOperationAdd in the hub commit."""
+exported_symbols = ["DatasetFileCommitEntry"]
+categories = ["dataset publishing"]
+part_of = ["hub commit"]
+
+[[terms]]
+name = "dataset commit result"
+definition = """
+Structured metadata returned after commit_dataset_files_to_hf, including \
+whether a new commit was created, commit OID and URL, optional \
+pull-request details, and per-file resolve URLs at the applicable revision."""
+exported_symbols = ["DatasetCommitResult"]
+categories = ["dataset publishing", "hub"]
+part_of = ["hub commit"]

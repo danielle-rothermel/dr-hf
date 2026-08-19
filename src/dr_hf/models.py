@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, ConfigDict, HttpUrl, computed_field
 
 
 class BranchInfo(BaseModel):
@@ -171,6 +172,8 @@ class ParameterEstimate(BaseModel):
 
 
 class ArchitectureInfo(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     hidden_size: int | None = None
     num_layers: int | None = None
     num_attention_heads: int | None = None
@@ -232,11 +235,12 @@ class WeightsAnalysis(BaseModel):
     @computed_field
     @property
     def weights_available(self) -> bool:
-        """Alias for `available` field, maintained for API/serialization stability.
+        """Alias for `available`, kept for API/serialization stability.
 
-        This property mirrors `available` to provide a consistent naming convention
-        in serialized outputs (e.g., JSON) where `weights_available` may be expected
-        by external consumers or for consistency with other component fields.
+        This property mirrors `available` to provide a consistent naming
+        convention in serialized outputs (e.g., JSON) where
+        `weights_available` may be expected by external consumers or for
+        consistency with other component fields.
         """
         return self.available
 
@@ -255,6 +259,8 @@ class CheckpointAnalysis(BaseModel):
 
 
 class CheckpointSummaryRow(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     branch: str
     step: int
     optimizer_available: bool = False
@@ -275,7 +281,9 @@ class CheckpointSummaryRow(BaseModel):
     weights_error: str = ""
 
     @classmethod
-    def from_analysis(cls, analysis: CheckpointAnalysis) -> CheckpointSummaryRow:
+    def from_analysis(
+        cls, analysis: CheckpointAnalysis
+    ) -> CheckpointSummaryRow:
         row = cls(branch=analysis.branch, step=analysis.step)
 
         opt = analysis.components.optimizer
@@ -309,8 +317,27 @@ class CheckpointSummaryRow(BaseModel):
         wgt = analysis.components.weights
         row.weights_available = wgt.available
         if wgt.available and wgt.summary:
-            row.total_weight_params_millions = wgt.summary.total_parameters_millions
+            row.total_weight_params_millions = (
+                wgt.summary.total_parameters_millions
+            )
         elif wgt.error:
             row.weights_error = wgt.error
 
         return row
+
+
+class DatasetFileCommitEntry(BaseModel):
+    local_path: Path
+    repo_path: str
+
+
+class DatasetCommitResult(BaseModel):
+    created: bool
+    commit_oid: str
+    commit_url: HttpUrl
+    commit_message: str
+    commit_description: str
+    pr_url: HttpUrl | None = None
+    pr_num: int | None = None
+    pr_revision: str | None = None
+    file_urls: dict[str, HttpUrl]

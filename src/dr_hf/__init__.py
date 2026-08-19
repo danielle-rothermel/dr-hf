@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .branches import (
     create_branch_metadata,
@@ -27,48 +27,51 @@ from .datasets import (
 )
 from .io import (
     cached_download_tables_from_hf,
+    commit_dataset_files_to_hf,
     get_tables_from_cache,
     read_local_parquet_paths,
-    upload_file_to_hf,
 )
 from .location import (
     HFLocation,
     HFRepoID,
     HFResource,
 )
+from .models import DatasetCommitResult, DatasetFileCommitEntry
 from .paths import (
     get_data_dir,
     get_repo_dir,
 )
 
 __all__ = [
+    "DatasetCommitResult",
+    "DatasetFileCommitEntry",
+    "HFLocation",
+    "HFRepoID",
+    "HFResource",
     "__version__",
+    "analyze_model_config",
+    "cached_download_tables_from_hf",
+    "commit_dataset_files_to_hf",
     "create_branch_metadata",
+    "download_config_file",
+    "download_dataset",
+    "estimate_parameter_count",
+    "extract_model_architecture_info",
     "extract_seed_from_branch",
     "extract_step_from_branch",
     "get_all_repo_branches",
     "get_checkpoint_branches",
-    "get_step_range_for_seed",
-    "group_branches_by_seed",
-    "is_checkpoint_branch",
-    "parse_branch_name",
-    "sort_branches_by_step",
-    "analyze_model_config",
-    "download_config_file",
-    "estimate_parameter_count",
-    "extract_model_architecture_info",
-    "download_dataset",
-    "load_or_download_dataset",
-    "sanitize_repo_name",
-    "cached_download_tables_from_hf",
-    "get_tables_from_cache",
-    "read_local_parquet_paths",
-    "upload_file_to_hf",
-    "HFLocation",
-    "HFRepoID",
-    "HFResource",
     "get_data_dir",
     "get_repo_dir",
+    "get_step_range_for_seed",
+    "get_tables_from_cache",
+    "group_branches_by_seed",
+    "is_checkpoint_branch",
+    "load_or_download_dataset",
+    "parse_branch_name",
+    "read_local_parquet_paths",
+    "sanitize_repo_name",
+    "sort_branches_by_step",
 ]
 
 

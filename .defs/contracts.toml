@@ -1,0 +1,89 @@
+#:schema ./contracts.schema.json
+
+[[contracts]]
+title = "Dataset publication is one atomic Hub commit"
+statement = """
+commit_dataset_files_to_hf publishes every dataset file commit entry in one \
+HfApi.create_commit call with one CommitOperationAdd per entry. Partial \
+remote publication of a multi-file request is not supported."""
+rationale = """
+A single commit keeps published artifacts consistent at one revision and \
+matches Hugging Face's atomic commit model for multi-file updates."""
+date = "2026-08-19"
+check = "uv run pytest -q tests/test_io.py::test_commit_calls_create_commit_with_expected_args"
+terms = ["hub commit", "dataset file commit entry"]
+
+[[contracts]]
+title = "Local validation completes before remote mutation"
+statement = """
+commit_dataset_files_to_hf validates every dataset file commit entry, \
+repository path, revision, expected parent commit OID format, and commit \
+message locally. Invalid inputs raise before any HfApi network call is \
+invoked."""
+rationale = """
+Rejecting bad inputs before any Hub call prevents partial remote state and \
+keeps network failures separate from caller mistakes."""
+date = "2026-08-19"
+check = "uv run pytest -q tests/test_io.py -k reject"
+terms = [
+  "dataset artifact",
+  "repository path",
+  "dataset file commit entry",
+]
+
+[[contracts]]
+title = "Direct hub commits require optimistic concurrency"
+statement = """
+When create_pr is false, expected_parent is required and non-empty and is \
+forwarded as parent_commit. The Hub rejects direct commits whose parent is \
+stale. When create_pr is true, expected_parent names the PR base only and \
+does not assert that the target branch is unchanged."""
+rationale = """
+Direct publication must fail rather than overwrite concurrent branch \
+updates. PR publication is non-destructive to the target branch, so the \
+parent names the observed base rather than enforcing branch-head equality."""
+date = "2026-08-19"
+check = "uv run pytest -q tests/test_io.py::test_commit_rejects_empty_expected_parent tests/test_io.py::test_commit_rejects_invalid_expected_parent_oid tests/test_io.py::test_commit_rejects_four_char_expected_parent_oid tests/test_io.py::test_commit_calls_create_commit_with_expected_args tests/test_io.py::test_commit_rejects_stale_parent_noop"
+terms = ["expected parent commit", "revision", "hub commit"]
+
+[[contracts]]
+title = "Unchanged uploads report no-op status explicitly"
+statement = """
+When create_pr is false and the Hub performs no commit because every file \
+is unchanged, commit_dataset_files_to_hf returns created=false when the \
+returned OID matches expected_parent (including abbreviated OIDs). If the \
+Hub returns the current revision head without creating a commit, the \
+revision head is unchanged since the preflight read, and that OID differs \
+from expected_parent, commit_dataset_files_to_hf raises rather than \
+reporting success. If the revision head advanced externally between the \
+preflight read and the unchanged upload, commit_dataset_files_to_hf \
+returns created=false without raising. When create_pr is true, \
+created=false when the Hub returns no pull-request metadata; an older \
+expected_parent does not trigger a stale-parent error."""
+rationale = """
+A stale expected_parent on an unchanged upload must not masquerade as a \
+successful publication or return an unrelated current OID as if a commit \
+were created."""
+date = "2026-08-19"
+check = "uv run pytest -q tests/test_io.py::test_commit_noop_when_oid_matches_expected_parent tests/test_io.py::test_commit_noop_abbreviated_parent_matches_full_oid tests/test_io.py::test_commit_rejects_stale_parent_noop tests/test_io.py::test_commit_race_noop_after_external_advance tests/test_io.py::test_commit_pr_noop_when_parent_older_than_head tests/test_io_sdk_commit.py"
+terms = ["hub commit", "expected parent commit", "dataset commit result"]
+
+[[contracts]]
+title = "Callers own dataset layout and publishing policy"
+statement = """
+dr-hf validates the shape and safety of repository paths and commit \
+metadata but does not choose which artifacts to publish, their repository \
+layout, the target revision, commit message, or whether the commit opens a \
+Hub pull request instead of committing directly."""
+rationale = """
+Publication policy belongs to the owning pipeline; dr-hf supplies a bounded \
+commit primitive with path safety and concurrency checks, not dataset \
+organization decisions."""
+date = "2026-08-19"
+check = "uv run pytest -q tests/test_io.py"
+terms = [
+  "dataset artifact",
+  "repository path",
+  "revision",
+  "HF location",
+]
