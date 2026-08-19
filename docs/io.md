@@ -18,7 +18,7 @@ def commit_dataset_files_to_hf(
     hf_token: str | None = None,
 ) -> DatasetCommitResult
 ```
-Publish multiple local files to a Hugging Face dataset repository in one atomic commit. Each entry pairs a local path with a unique relative POSIX repository path. All inputs are validated before any remote mutation. Requires `expected_parent` for optimistic concurrency against the target `revision`. Set `create_pr=True` to open a Hub PR instead of committing directly.
+Publish multiple local files to a Hugging Face dataset repository in one atomic commit. Each entry pairs a local path with a unique relative POSIX repository path. All inputs are validated before any remote mutation. Requires `expected_parent`: for direct commits it enforces optimistic concurrency against the target `revision`; for `create_pr=True` it names the PR base only. Returns `created=False` when the Hub performs a matching-parent no-op. Set `create_pr=True` to open a Hub PR instead of committing directly.
 
 ### cached_download_tables_from_hf
 ```python

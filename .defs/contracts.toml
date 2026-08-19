@@ -31,17 +31,35 @@ terms = [
 ]
 
 [[contracts]]
-title = "Hub commits require optimistic concurrency"
+title = "Direct hub commits require optimistic concurrency"
 statement = """
-expected_parent is required and non-empty on every hub commit. dr-hf \
-forwards it as parent_commit to HfApi.create_commit on every call."""
+When create_pr is false, expected_parent is required and non-empty and is \
+forwarded as parent_commit. The Hub rejects direct commits whose parent is \
+stale. When create_pr is true, expected_parent names the PR base only and \
+does not assert that the target branch is unchanged."""
 rationale = """
-Requiring the caller to supply the revision head they observed lets the Hub \
-reject commits based on stale parent OIDs instead of silently overwriting \
-concurrent updates."""
+Direct publication must fail rather than overwrite concurrent branch \
+updates. PR publication is non-destructive to the target branch, so the \
+parent names the observed base rather than enforcing branch-head equality."""
 date = "2026-08-19"
-check = "uv run pytest -q tests/test_io.py::test_commit_rejects_empty_expected_parent tests/test_io.py::test_commit_calls_create_commit_with_expected_args"
+check = "uv run pytest -q tests/test_io.py::test_commit_rejects_empty_expected_parent tests/test_io.py::test_commit_calls_create_commit_with_expected_args tests/test_io.py::test_commit_rejects_stale_parent_noop"
 terms = ["expected parent commit", "revision", "hub commit"]
+
+[[contracts]]
+title = "Unchanged uploads report no-op status explicitly"
+statement = """
+When the Hub performs no commit because every file is unchanged, \
+commit_dataset_files_to_hf returns created=false only if the returned OID \
+matches expected_parent. If the Hub returns the current revision head \
+without creating a commit and that OID differs from expected_parent, \
+commit_dataset_files_to_hf raises rather than reporting success."""
+rationale = """
+A stale expected_parent on an unchanged upload must not masquerade as a \
+successful publication or return an unrelated current OID as if a commit \
+were created."""
+date = "2026-08-19"
+check = "uv run pytest -q tests/test_io.py::test_commit_noop_when_oid_matches_expected_parent tests/test_io.py::test_commit_rejects_stale_parent_noop"
+terms = ["hub commit", "expected parent commit", "dataset commit result"]
 
 [[contracts]]
 title = "Callers own dataset layout and publishing policy"

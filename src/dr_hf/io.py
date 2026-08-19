@@ -4,7 +4,12 @@ from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from huggingface_hub import CommitOperationAdd, HfApi, hf_hub_download
+from huggingface_hub import (
+    CommitInfo,
+    CommitOperationAdd,
+    HfApi,
+    hf_hub_download,
+)
 from pydantic import HttpUrl
 
 from .location import HFLocation
@@ -67,6 +72,26 @@ def _validate_dataset_commit_inputs(
     return normalized
 
 
+def _commit_was_created(
+    commit_info: CommitInfo,
+    *,
+    expected_parent: str,
+    commit_message: str,
+    create_pr: bool,
+) -> bool:
+    if commit_info.oid == expected_parent:
+        return False
+    if create_pr:
+        return True
+    if commit_info.commit_message == commit_message:
+        return True
+    msg = (
+        "expected_parent is stale: Hub returned revision head "
+        f"{commit_info.oid!r} without creating a commit"
+    )
+    raise ValueError(msg)
+
+
 def commit_dataset_files_to_hf(  # noqa: PLR0913
     files: list[DatasetFileCommitEntry],
     hf_loc: HFLocation,
@@ -101,13 +126,21 @@ def commit_dataset_files_to_hf(  # noqa: PLR0913
         parent_commit=expected_parent,
         create_pr=create_pr,
     )
+    created = _commit_was_created(
+        commit_info,
+        expected_parent=expected_parent,
+        commit_message=commit_message,
+        create_pr=create_pr,
+    )
+    url_revision = commit_info.pr_revision or revision
     file_urls = {
         entry.repo_path: hf_loc.get_file_download_link_for_revision(
-            entry.repo_path, revision
+            entry.repo_path, url_revision
         )
         for entry in normalized_files
     }
     return DatasetCommitResult(
+        created=created,
         commit_oid=commit_info.oid,
         commit_url=HttpUrl(commit_info.commit_url),
         commit_message=commit_info.commit_message,

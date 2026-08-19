@@ -328,6 +328,7 @@ class DatasetFileCommitEntry(BaseModel):
 
 
 class DatasetCommitResult(BaseModel):
+    created: bool
     commit_oid: str
     commit_url: HttpUrl
     commit_message: str

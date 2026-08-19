@@ -36,12 +36,15 @@ from .location import (
     HFRepoID,
     HFResource,
 )
+from .models import DatasetCommitResult, DatasetFileCommitEntry
 from .paths import (
     get_data_dir,
     get_repo_dir,
 )
 
 __all__ = [
+    "DatasetCommitResult",
+    "DatasetFileCommitEntry",
     "HFLocation",
     "HFRepoID",
     "HFResource",
@@ -116,8 +119,6 @@ def __getattr__(name: str):
         "CheckpointComponents",
         "CheckpointSummaryRow",
         "ConfigAnalysis",
-        "DatasetCommitResult",
-        "DatasetFileCommitEntry",
         "GlobalWeightStats",
         "LayerAnalysis",
         "LayerCategorization",

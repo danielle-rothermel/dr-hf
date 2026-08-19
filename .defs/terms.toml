@@ -37,9 +37,10 @@ part_of = ["hub commit"]
 [[terms]]
 name = "expected parent commit"
 definition = """
-The non-empty OID of the revision head the caller expects at commit time. \
-dr-hf forwards it as parent_commit so the Hub can reject stale concurrent \
-writes."""
+The non-empty OID the caller observed before publication. For direct hub \
+commits, dr-hf forwards it as parent_commit so the Hub can reject stale \
+concurrent writes. For pull-request publication, it names the PR base only \
+and does not assert that the target branch is unchanged."""
 categories = ["hub", "dataset publishing"]
 part_of = ["hub commit"]
 
@@ -65,9 +66,9 @@ part_of = ["hub commit"]
 [[terms]]
 name = "dataset commit result"
 definition = """
-Structured metadata returned after a successful hub commit, including \
-commit OID and URL, optional pull-request details, and per-file resolve \
-URLs at the target revision."""
+Structured metadata returned after commit_dataset_files_to_hf, including \
+whether a new commit was created, commit OID and URL, optional \
+pull-request details, and per-file resolve URLs at the applicable revision."""
 exported_symbols = ["DatasetCommitResult"]
 categories = ["dataset publishing", "hub"]
 part_of = ["hub commit"]

@@ -8,7 +8,6 @@ from typing import Any
 
 import pandas as pd
 from huggingface_hub import hf_hub_download
-from huggingface_hub.errors import EntryNotFoundError, HfHubHTTPError
 
 from ._torch import get_torch
 from .branches import extract_step_from_branch, get_checkpoint_branches
@@ -39,13 +38,12 @@ def download_optimizer_checkpoint(
             revision=branch,
             local_dir=local_dir,
         )
-    except (EntryNotFoundError, HfHubHTTPError, OSError) as e:
+        return file_path, True, ""
+    except Exception as e:
         error_msg = str(e)
         if "404" in error_msg or "Entry Not Found" in error_msg:
             return None, False, "Optimizer checkpoint not available"
         return None, False, error_msg
-    else:
-        return file_path, True, ""
 
 
 def _parse_optimizer_component(
@@ -175,16 +173,15 @@ def analyze_optimizer_checkpoint(checkpoint_path: str) -> OptimizerAnalysis:
                     )
             analysis.learning_rate_info = _parse_learning_rate_info(checkpoint)
 
-    except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
-        return OptimizerAnalysis(available=False, error=str(e))
-    else:
         return analysis
+
+    except Exception as e:
+        return OptimizerAnalysis(available=False, error=str(e))
 
 
 def analyze_complete_checkpoint(
     repo_id: str,
     branch: str,
-    *,
     include_weights: bool = False,
     weight_files: list[str] | None = None,
     delete_weights_after: bool = False,
@@ -213,10 +210,7 @@ def analyze_complete_checkpoint(
 
     if include_weights:
         components.weights = analyze_model_weights(
-            repo_id,
-            branch,
-            weight_files,
-            delete_after_analysis=delete_weights_after,
+            repo_id, branch, weight_files, delete_weights_after
         )
 
     return CheckpointAnalysis(
@@ -229,7 +223,6 @@ def analyze_complete_checkpoint(
 def process_single_checkpoint(
     repo_id: str,
     branch: str,
-    *,
     include_weights: bool = False,
     delete_weights_after: bool = False,
 ) -> tuple[str, CheckpointAnalysis]:
@@ -237,10 +230,12 @@ def process_single_checkpoint(
         analysis = analyze_complete_checkpoint(
             repo_id,
             branch,
-            include_weights=include_weights,
+            include_weights,
             delete_weights_after=delete_weights_after,
         )
-    except (OSError, RuntimeError, ValueError, TypeError) as e:
+        return branch, analysis
+
+    except Exception as e:
         error_analysis = CheckpointAnalysis(
             branch=branch,
             step=extract_step_from_branch(branch),
@@ -252,14 +247,11 @@ def process_single_checkpoint(
             ),
         )
         return branch, error_analysis
-    else:
-        return branch, analysis
 
 
 def process_all_checkpoints(
     repo_id: str,
     max_workers: int = 4,
-    *,
     include_weights: bool = False,
     delete_weights_after: bool = False,
 ) -> dict[str, CheckpointAnalysis]:
@@ -276,8 +268,8 @@ def process_all_checkpoints(
                 process_single_checkpoint,
                 repo_id,
                 branch,
-                include_weights=include_weights,
-                delete_weights_after=delete_weights_after,
+                include_weights,
+                delete_weights_after,
             ): branch
             for branch in branches
         }

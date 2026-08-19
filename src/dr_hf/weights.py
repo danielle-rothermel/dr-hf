@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from huggingface_hub import hf_hub_download, list_repo_files
-from huggingface_hub.errors import EntryNotFoundError, HfHubHTTPError
 
 from ._torch import get_torch
 from .models import (
@@ -71,7 +70,7 @@ def discover_model_weight_files(
 ) -> list[str]:
     try:
         all_files = list_repo_files(repo_id=repo_id, revision=branch)
-    except (HfHubHTTPError, OSError):
+    except Exception:
         return []
     else:
         weight_patterns = [
@@ -99,13 +98,12 @@ def download_model_weights(
             revision=branch,
             local_dir=local_dir,
         )
-    except (EntryNotFoundError, HfHubHTTPError, OSError) as e:
+        return file_path, True, ""
+    except Exception as e:
         error_msg = str(e)
         if "404" in error_msg or "Entry Not Found" in error_msg:
             return None, False, f"Weight file {filename} not available"
         return None, False, error_msg
-    else:
-        return file_path, True, ""
 
 
 def calculate_weight_statistics(weight_path: str) -> WeightFileStatistics:
@@ -124,7 +122,7 @@ def calculate_weight_statistics(weight_path: str) -> WeightFileStatistics:
 
             weights: dict[str, Any] = {}
             with safe_open(weight_path, framework="pt") as f:
-                for key in f:
+                for key in f.keys():
                     weights[key] = f.get_tensor(key)
         else:
             # Use weights_only=True for security (requires PyTorch >= 2.6.0)
@@ -178,7 +176,7 @@ def calculate_weight_statistics(weight_path: str) -> WeightFileStatistics:
             global_statistics=calculate_global_weight_stats(weights),
         )
 
-    except (OSError, RuntimeError, ValueError, TypeError, ImportError) as e:
+    except Exception as e:
         return WeightFileStatistics(
             file_path=weight_path,
             file_size_mb=0.0,
@@ -418,7 +416,6 @@ def analyze_model_weights(
     repo_id: str,
     branch: str,
     weight_files: list[str] | None = None,
-    *,
     delete_after_analysis: bool = False,
 ) -> WeightsAnalysis:
     if weight_files is None:

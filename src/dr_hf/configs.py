@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 from huggingface_hub import hf_hub_download
-from huggingface_hub.errors import EntryNotFoundError, HfHubHTTPError
 
 from .models import ArchitectureInfo, ConfigAnalysis, ParameterEstimate
 
@@ -20,22 +19,19 @@ def download_config_file(
             revision=branch,
             local_dir=local_dir,
         )
-    except (EntryNotFoundError, HfHubHTTPError, OSError) as e:
+        return file_path, True, ""
+    except Exception as e:
         error_msg = str(e)
         if "404" in error_msg or "Entry Not Found" in error_msg:
             return None, False, "Config file not available"
         return None, False, error_msg
-    else:
-        return file_path, True, ""
 
 
 def analyze_model_config(config_path: str) -> ConfigAnalysis:
     try:
         with Path(config_path).open(encoding="utf-8") as f:
             config = json.load(f)
-    except (OSError, json.JSONDecodeError, TypeError, ValueError) as e:
-        return ConfigAnalysis(available=False, error=str(e))
-    else:
+
         return ConfigAnalysis(
             available=True,
             raw_config=config,
@@ -45,6 +41,9 @@ def analyze_model_config(config_path: str) -> ConfigAnalysis:
             else [],
             config_type=type(config).__name__,
         )
+
+    except Exception as e:
+        return ConfigAnalysis(available=False, error=str(e))
 
 
 def extract_model_architecture_info(

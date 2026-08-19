@@ -23,7 +23,6 @@ def download_dataset(
     path: Path,
     repo_id: str,
     split: str = "train",
-    *,
     force_reload: bool = False,
 ) -> None:
     if force_reload or not path.exists():

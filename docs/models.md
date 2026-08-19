@@ -316,6 +316,7 @@ Local file paired with its target relative POSIX path in a dataset repository.
 ### DatasetCommitResult
 ```python
 class DatasetCommitResult(BaseModel):
+    created: bool
     commit_oid: str
     commit_url: HttpUrl
     commit_message: str
@@ -325,7 +326,7 @@ class DatasetCommitResult(BaseModel):
     pr_revision: str | None = None
     file_urls: dict[str, HttpUrl]
 ```
-Structured result from `commit_dataset_files_to_hf()`, including commit metadata, optional PR details, and per-file resolve URLs at the target revision.
+Structured result from `commit_dataset_files_to_hf()`, including whether a new commit was created, commit metadata, optional PR details, and per-file resolve URLs at the applicable revision.
 
 ## Computed Fields
 
