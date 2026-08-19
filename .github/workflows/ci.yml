@@ -48,19 +48,22 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: false
-      # Floors must match pyproject.toml minimums and provide cp312 wheels.
+      # Floors must match pyproject.toml minimums. Prefer cp312 wheels where
+      # available (pydantic-core 2.0.x may source-build on 3.12).
       # Pin transitive deps so resolver picks ABI-compatible builds:
       # pandas 2.1.x needs numpy 1.x; datasets 2.0.x needs pyarrow <21.
-      - name: Smoke-test import against declared dependency floors
+      - name: Smoke-test against declared dependency floors
         run: |
           uv venv .min-venv --python 3.12
           uv pip install --python .min-venv/bin/python \
-            "huggingface-hub==0.20.0" \
+            "huggingface-hub==0.24.0" \
             "datasets==2.0.0" \
             "numpy==1.26.4" \
             "pandas==2.1.1" \
             "pyarrow==20.0.0" \
             "pydantic==2.0.0" \
-            "python-dotenv==1.0.0"
+            "python-dotenv==1.0.0" \
+            "pytest>=9.1.1"
           uv pip install --python .min-venv/bin/python -e . --no-deps
           .min-venv/bin/python -c "import dr_hf; assert dr_hf.__version__"
+          .min-venv/bin/python -m pytest -q tests/test_io.py

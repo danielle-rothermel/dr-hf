@@ -43,7 +43,7 @@ Direct publication must fail rather than overwrite concurrent branch \
 updates. PR publication is non-destructive to the target branch, so the \
 parent names the observed base rather than enforcing branch-head equality."""
 date = "2026-08-19"
-check = "uv run pytest -q tests/test_io.py::test_commit_rejects_empty_expected_parent tests/test_io.py::test_commit_rejects_invalid_expected_parent_oid tests/test_io.py::test_commit_calls_create_commit_with_expected_args tests/test_io.py::test_commit_rejects_stale_parent_noop"
+check = "uv run pytest -q tests/test_io.py::test_commit_rejects_empty_expected_parent tests/test_io.py::test_commit_rejects_invalid_expected_parent_oid tests/test_io.py::test_commit_rejects_four_char_expected_parent_oid tests/test_io.py::test_commit_calls_create_commit_with_expected_args tests/test_io.py::test_commit_rejects_stale_parent_noop"
 terms = ["expected parent commit", "revision", "hub commit"]
 
 [[contracts]]

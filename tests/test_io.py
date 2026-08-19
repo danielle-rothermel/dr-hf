@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, TypedDict
 from unittest.mock import MagicMock, patch
 
 import pytest
-from huggingface_hub import CommitInfo
+from huggingface_hub import CommitInfo, CommitOperationAdd
 
 from dr_hf import commit_dataset_files_to_hf
 from dr_hf.location import HFLocation
@@ -55,19 +55,36 @@ def _commit_kwargs(
     }
 
 
+def _mark_operations_committed(
+    operations: list[CommitOperationAdd] | None,
+    *,
+    committed: bool,
+) -> None:
+    if operations is None:
+        return
+    for operation in operations:
+        operation._is_committed = committed
+
+
 def _mock_hf_api(
     mock_hf_api_cls: MagicMock,
     *,
     head_before: str,
     commit_info: CommitInfo,
-    head_after: str | None = None,
+    committed: bool = False,
 ) -> MagicMock:
     mock_api = mock_hf_api_cls.return_value
-    heads = [MagicMock(sha=head_before)]
-    if head_after is not None:
-        heads.append(MagicMock(sha=head_after))
-    mock_api.repo_info.side_effect = heads
-    mock_api.create_commit.return_value = commit_info
+    mock_api.repo_info.return_value = MagicMock(sha=head_before)
+
+    def _create_commit(
+        *args: object,
+        operations: list[CommitOperationAdd] | None = None,
+        **kwargs: object,
+    ) -> CommitInfo:
+        _mark_operations_committed(operations, committed=committed)
+        return commit_info
+
+    mock_api.create_commit.side_effect = _create_commit
     return mock_api
 
 
@@ -153,6 +170,26 @@ def test_commit_rejects_invalid_expected_parent_oid(
 
 
 @patch("dr_hf.io.HfApi")
+def test_commit_rejects_four_char_expected_parent_oid(
+    mock_hf_api_cls: MagicMock,
+    hf_loc: HFLocation,
+    local_file: Path,
+) -> None:
+    entry = _make_entry(local_file, "data/file.parquet")
+    with pytest.raises(
+        ValueError, match="expected_parent must be a valid commit OID"
+    ):
+        commit_dataset_files_to_hf(
+            [entry],
+            hf_loc,
+            revision="main",
+            expected_parent="abcd",
+            commit_message="Add file",
+        )
+    mock_hf_api_cls.assert_not_called()
+
+
+@patch("dr_hf.io.HfApi")
 def test_commit_rejects_invalid_repo_path_with_parent_dir(
     mock_hf_api_cls: MagicMock,
     hf_loc: HFLocation,
@@ -176,11 +213,9 @@ def test_commit_rejects_absolute_repo_path(
     mock_hf_api_cls.assert_not_called()
 
 
-@patch("dr_hf.io._files_unchanged_on_hub", return_value=False)
 @patch("dr_hf.io.HfApi")
 def test_commit_calls_create_commit_with_expected_args(
     mock_hf_api_cls: MagicMock,
-    mock_files_unchanged: MagicMock,
     hf_loc: HFLocation,
     tmp_path: Path,
 ) -> None:
@@ -195,7 +230,6 @@ def test_commit_calls_create_commit_with_expected_args(
     _mock_hf_api(
         mock_hf_api_cls,
         head_before=PARENT_OID,
-        head_after=NEW_COMMIT_OID,
         commit_info=CommitInfo(
             commit_url=(
                 "https://huggingface.co/datasets/test-org/test-dataset/"
@@ -205,6 +239,7 @@ def test_commit_calls_create_commit_with_expected_args(
             commit_description="",
             oid=NEW_COMMIT_OID,
         ),
+        committed=True,
     )
 
     result = commit_dataset_files_to_hf(
@@ -230,12 +265,12 @@ def test_commit_calls_create_commit_with_expected_args(
     assert len(kwargs["operations"]) == 2
     assert kwargs["operations"][0].path_in_repo == "data/a.parquet"
     assert kwargs["operations"][1].path_in_repo == "data/b.parquet"
+    assert all(op._is_committed for op in kwargs["operations"])
 
     assert result.commit_oid == NEW_COMMIT_OID
     assert result.created is True
     assert str(result.commit_url).endswith(f"/commit/{NEW_COMMIT_OID}")
     assert result.pr_url is None
-    mock_files_unchanged.assert_called_once()
     assert str(result.file_urls["data/a.parquet"]).endswith(
         "/resolve/dev/data/a.parquet"
     )
@@ -244,11 +279,9 @@ def test_commit_calls_create_commit_with_expected_args(
     )
 
 
-@patch("dr_hf.io._files_unchanged_on_hub", return_value=False)
 @patch("dr_hf.io.HfApi")
 def test_commit_maps_pr_fields(
     mock_hf_api_cls: MagicMock,
-    mock_files_unchanged: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
@@ -256,7 +289,6 @@ def test_commit_maps_pr_fields(
     _mock_hf_api(
         mock_hf_api_cls,
         head_before=PARENT_OID,
-        head_after=NEW_COMMIT_OID,
         commit_info=CommitInfo(
             commit_url=(
                 "https://huggingface.co/datasets/test-org/test-dataset/"
@@ -267,6 +299,7 @@ def test_commit_maps_pr_fields(
             oid=NEW_COMMIT_OID,
             pr_url="https://huggingface.co/datasets/test-org/test-dataset/discussions/7",
         ),
+        committed=True,
     )
 
     result = commit_dataset_files_to_hf(
@@ -291,11 +324,9 @@ def test_commit_maps_pr_fields(
     )
 
 
-@patch("dr_hf.io._files_unchanged_on_hub", return_value=True)
 @patch("dr_hf.io.HfApi")
 def test_commit_noop_when_oid_matches_expected_parent(
     mock_hf_api_cls: MagicMock,
-    mock_files_unchanged: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
@@ -303,7 +334,6 @@ def test_commit_noop_when_oid_matches_expected_parent(
     _mock_hf_api(
         mock_hf_api_cls,
         head_before=PARENT_OID,
-        head_after=PARENT_OID,
         commit_info=CommitInfo(
             commit_url=(
                 "https://huggingface.co/datasets/test-org/test-dataset/"
@@ -313,6 +343,7 @@ def test_commit_noop_when_oid_matches_expected_parent(
             commit_description="",
             oid=PARENT_OID,
         ),
+        committed=False,
     )
 
     result = commit_dataset_files_to_hf(
@@ -327,11 +358,9 @@ def test_commit_noop_when_oid_matches_expected_parent(
     assert result.commit_oid == PARENT_OID
 
 
-@patch("dr_hf.io._files_unchanged_on_hub", return_value=True)
 @patch("dr_hf.io.HfApi")
 def test_commit_noop_abbreviated_parent_matches_full_oid(
     mock_hf_api_cls: MagicMock,
-    mock_files_unchanged: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
@@ -339,7 +368,6 @@ def test_commit_noop_abbreviated_parent_matches_full_oid(
     _mock_hf_api(
         mock_hf_api_cls,
         head_before=PARENT_OID,
-        head_after=PARENT_OID,
         commit_info=CommitInfo(
             commit_url=(
                 "https://huggingface.co/datasets/test-org/test-dataset/"
@@ -349,6 +377,7 @@ def test_commit_noop_abbreviated_parent_matches_full_oid(
             commit_description="",
             oid=PARENT_OID,
         ),
+        committed=False,
     )
 
     result = commit_dataset_files_to_hf(
@@ -363,11 +392,9 @@ def test_commit_noop_abbreviated_parent_matches_full_oid(
     assert result.commit_oid == PARENT_OID
 
 
-@patch("dr_hf.io._files_unchanged_on_hub", return_value=True)
 @patch("dr_hf.io.HfApi")
 def test_commit_rejects_stale_parent_noop(
     mock_hf_api_cls: MagicMock,
-    mock_files_unchanged: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
@@ -375,7 +402,6 @@ def test_commit_rejects_stale_parent_noop(
     _mock_hf_api(
         mock_hf_api_cls,
         head_before=HEAD_OID_B,
-        head_after=HEAD_OID_B,
         commit_info=CommitInfo(
             commit_url=(
                 "https://huggingface.co/datasets/test-org/test-dataset/"
@@ -385,6 +411,7 @@ def test_commit_rejects_stale_parent_noop(
             commit_description="",
             oid=HEAD_OID_B,
         ),
+        committed=False,
     )
 
     with pytest.raises(ValueError, match="expected_parent is stale"):
@@ -397,11 +424,9 @@ def test_commit_rejects_stale_parent_noop(
         )
 
 
-@patch("dr_hf.io._files_unchanged_on_hub", return_value=True)
 @patch("dr_hf.io.HfApi")
 def test_commit_race_noop_after_external_advance(
     mock_hf_api_cls: MagicMock,
-    mock_files_unchanged: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
@@ -409,7 +434,6 @@ def test_commit_race_noop_after_external_advance(
     _mock_hf_api(
         mock_hf_api_cls,
         head_before=PARENT_OID,
-        head_after=HEAD_OID_B,
         commit_info=CommitInfo(
             commit_url=(
                 "https://huggingface.co/datasets/test-org/test-dataset/"
@@ -419,6 +443,7 @@ def test_commit_race_noop_after_external_advance(
             commit_description="",
             oid=HEAD_OID_B,
         ),
+        committed=False,
     )
 
     result = commit_dataset_files_to_hf(
@@ -433,11 +458,9 @@ def test_commit_race_noop_after_external_advance(
     assert result.commit_oid == HEAD_OID_B
 
 
-@patch("dr_hf.io._files_unchanged_on_hub", return_value=True)
 @patch("dr_hf.io.HfApi")
 def test_commit_pr_noop_when_oid_matches_expected_parent(
     mock_hf_api_cls: MagicMock,
-    mock_files_unchanged: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
@@ -445,7 +468,6 @@ def test_commit_pr_noop_when_oid_matches_expected_parent(
     _mock_hf_api(
         mock_hf_api_cls,
         head_before=PARENT_OID,
-        head_after=PARENT_OID,
         commit_info=CommitInfo(
             commit_url=(
                 "https://huggingface.co/datasets/test-org/test-dataset/"
@@ -455,6 +477,7 @@ def test_commit_pr_noop_when_oid_matches_expected_parent(
             commit_description="",
             oid=PARENT_OID,
         ),
+        committed=False,
     )
 
     result = commit_dataset_files_to_hf(
@@ -469,11 +492,9 @@ def test_commit_pr_noop_when_oid_matches_expected_parent(
     assert result.pr_url is None
 
 
-@patch("dr_hf.io._files_unchanged_on_hub", return_value=True)
 @patch("dr_hf.io.HfApi")
 def test_commit_pr_noop_when_parent_older_than_head(
     mock_hf_api_cls: MagicMock,
-    mock_files_unchanged: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
@@ -481,7 +502,6 @@ def test_commit_pr_noop_when_parent_older_than_head(
     _mock_hf_api(
         mock_hf_api_cls,
         head_before=HEAD_OID_B,
-        head_after=HEAD_OID_B,
         commit_info=CommitInfo(
             commit_url=(
                 "https://huggingface.co/datasets/test-org/test-dataset/"
@@ -491,6 +511,7 @@ def test_commit_pr_noop_when_parent_older_than_head(
             commit_description="",
             oid=HEAD_OID_B,
         ),
+        committed=False,
     )
 
     result = commit_dataset_files_to_hf(
@@ -507,11 +528,9 @@ def test_commit_pr_noop_when_parent_older_than_head(
     assert result.pr_url is None
 
 
-@patch("dr_hf.io._files_unchanged_on_hub", return_value=False)
 @patch("dr_hf.io.HfApi")
 def test_commit_real_commit_uses_new_oid(
     mock_hf_api_cls: MagicMock,
-    mock_files_unchanged: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
@@ -519,7 +538,6 @@ def test_commit_real_commit_uses_new_oid(
     _mock_hf_api(
         mock_hf_api_cls,
         head_before=PARENT_OID,
-        head_after=NEW_COMMIT_OID,
         commit_info=CommitInfo(
             commit_url=(
                 "https://huggingface.co/datasets/test-org/test-dataset/"
@@ -529,6 +547,7 @@ def test_commit_real_commit_uses_new_oid(
             commit_description="",
             oid=NEW_COMMIT_OID,
         ),
+        committed=True,
     )
 
     result = commit_dataset_files_to_hf(

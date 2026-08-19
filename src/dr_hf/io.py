@@ -11,8 +11,6 @@ from huggingface_hub import (
     HfApi,
     hf_hub_download,
 )
-from huggingface_hub._commit_api import _fetch_upload_modes
-from huggingface_hub.utils import build_hf_headers
 from pydantic import HttpUrl
 
 from .location import HFLocation
@@ -29,7 +27,7 @@ __all__ = [
     "read_local_parquet_paths",
 ]
 
-_COMMIT_OID_RE = re.compile(r"^[0-9a-fA-F]{4,40}$")
+_COMMIT_OID_RE = re.compile(r"^[0-9a-fA-F]{5,40}$")
 
 
 def _normalize_commit_oid(
@@ -44,7 +42,7 @@ def _normalize_commit_oid(
     if not _COMMIT_OID_RE.fullmatch(stripped):
         msg = (
             f"{field_name} must be a valid commit OID "
-            f"(4-40 hexadecimal characters), got {oid!r}"
+            f"(5-40 hexadecimal characters), got {oid!r}"
         )
         raise ValueError(msg)
     return stripped.lower()
@@ -121,61 +119,34 @@ def _revision_head_sha(
     return _normalize_commit_oid(repo_head, field_name="revision head")
 
 
-def _files_unchanged_on_hub(
-    api: HfApi,
-    hf_loc: HFLocation,
-    revision: str,
-    operations: list[CommitOperationAdd],
-    *,
-    create_pr: bool,
-) -> bool:
-    if not operations:
-        return True
-    headers = build_hf_headers(token=api.token, library_name="dr-hf")
-    _fetch_upload_modes(
-        operations,
-        repo_type=hf_loc.hf_hub_repo_type,
-        repo_id=hf_loc.repo_id,
-        headers=headers,
-        revision=revision,
-        create_pr=create_pr,
-    )
-    for operation in operations:
-        if operation._remote_oid is None:
-            return False
-        if operation._local_oid != operation._remote_oid:
-            return False
-    return True
-
-
-def _commit_was_created(  # noqa: PLR0913
+def _commit_was_created(
     commit_info: CommitInfo,
     *,
     expected_parent: str,
     head_before: str,
-    head_after: str,
     create_pr: bool,
-    files_unchanged: bool,
+    committed: bool,
 ) -> bool:
     if create_pr:
         return bool(commit_info.pr_url or commit_info.pr_revision)
+
+    if committed:
+        return True
 
     oid = _normalize_commit_oid(commit_info.oid)
     if _commit_oids_equal(oid, expected_parent):
         return False
 
-    if files_unchanged and _commit_oids_equal(oid, head_after):
-        if _commit_oids_equal(head_before, head_after):
-            if not _commit_oids_equal(expected_parent, head_after):
-                msg = (
-                    "expected_parent is stale: Hub returned revision head "
-                    f"{commit_info.oid!r} without creating a commit"
-                )
-                raise ValueError(msg)
-            return False
+    if _commit_oids_equal(oid, head_before):
+        if not _commit_oids_equal(expected_parent, head_before):
+            msg = (
+                "expected_parent is stale: Hub returned revision head "
+                f"{commit_info.oid!r} without creating a commit"
+            )
+            raise ValueError(msg)
         return False
 
-    return True
+    return False
 
 
 def commit_dataset_files_to_hf(  # noqa: PLR0913
@@ -214,21 +185,12 @@ def commit_dataset_files_to_hf(  # noqa: PLR0913
         parent_commit=canonical_parent,
         create_pr=create_pr,
     )
-    head_after = _revision_head_sha(api, hf_loc, revision=revision)
-    files_unchanged = _files_unchanged_on_hub(
-        api,
-        hf_loc,
-        revision,
-        operations,
-        create_pr=create_pr,
-    )
     created = _commit_was_created(
         commit_info,
         expected_parent=canonical_parent,
         head_before=head_before,
-        head_after=head_after,
         create_pr=create_pr,
-        files_unchanged=files_unchanged,
+        committed=any(op._is_committed for op in operations),
     )
     url_revision = commit_info.pr_revision or revision
     file_urls = {
