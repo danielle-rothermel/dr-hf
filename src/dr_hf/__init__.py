@@ -27,9 +27,9 @@ from .datasets import (
 )
 from .io import (
     cached_download_tables_from_hf,
+    commit_dataset_files_to_hf,
     get_tables_from_cache,
     read_local_parquet_paths,
-    upload_file_to_hf,
 )
 from .location import (
     HFLocation,
@@ -61,9 +61,9 @@ __all__ = [
     "load_or_download_dataset",
     "sanitize_repo_name",
     "cached_download_tables_from_hf",
+    "commit_dataset_files_to_hf",
     "get_tables_from_cache",
     "read_local_parquet_paths",
-    "upload_file_to_hf",
     "HFLocation",
     "HFRepoID",
     "HFResource",
@@ -116,6 +116,8 @@ def __getattr__(name: str):
         "CheckpointComponents",
         "CheckpointSummaryRow",
         "ConfigAnalysis",
+        "DatasetCommitResult",
+        "DatasetFileCommitEntry",
         "GlobalWeightStats",
         "LayerAnalysis",
         "LayerCategorization",

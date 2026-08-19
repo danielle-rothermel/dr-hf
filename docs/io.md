@@ -4,16 +4,21 @@ HfApi upload/download operations for files and parquet datasets.
 
 ## Functions
 
-### upload_file_to_hf
+### commit_dataset_files_to_hf
 ```python
-def upload_file_to_hf(
-    local_path: str | Path,
+def commit_dataset_files_to_hf(
+    files: list[DatasetFileCommitEntry],
     hf_loc: HFLocation,
     *,
-    hf_token: str | None = None
-) -> str
+    revision: str,
+    expected_parent: str,
+    commit_message: str,
+    commit_description: str | None = None,
+    create_pr: bool = False,
+    hf_token: str | None = None,
+) -> DatasetCommitResult
 ```
-Upload a file to a HuggingFace repository. The `HFLocation` must have exactly one filepath specified. Returns the URL of the uploaded file.
+Publish multiple local files to a Hugging Face dataset repository in one atomic commit. Each entry pairs a local path with a unique relative POSIX repository path. All inputs are validated before any remote mutation. Requires `expected_parent` for optimistic concurrency against the target `revision`. Set `create_pr=True` to open a Hub PR instead of committing directly.
 
 ### cached_download_tables_from_hf
 ```python
@@ -59,24 +64,34 @@ Query a HuggingFace dataset directly using DuckDB. Requires a DuckDB connection 
 ```python
 from pathlib import Path
 from dr_hf import (
-    upload_file_to_hf,
+    commit_dataset_files_to_hf,
+    DatasetFileCommitEntry,
     cached_download_tables_from_hf,
     query_hf_with_duckdb,
     HFLocation,
 )
 
-# Upload a file
-loc = HFLocation(
-    org="username",
-    repo_name="my-dataset",
-    filepaths=["data/results.parquet"]
-)
-url = upload_file_to_hf(
-    Path("results.parquet"),
+# Atomically commit multiple files to a dataset repo
+loc = HFLocation(org="username", repo_name="my-dataset")
+result = commit_dataset_files_to_hf(
+    [
+        DatasetFileCommitEntry(
+            local_path=Path("results/a.parquet"),
+            repo_path="data/a.parquet",
+        ),
+        DatasetFileCommitEntry(
+            local_path=Path("results/b.parquet"),
+            repo_path="data/b.parquet",
+        ),
+    ],
     loc,
-    hf_token="hf_..."
+    revision="main",
+    expected_parent="abc1234567890",
+    commit_message="Add evaluation results",
+    hf_token="hf_...",
 )
-print(f"Uploaded to: {url}")
+print(f"Committed: {result.commit_oid}")
+print(f"Files: {result.file_urls}")
 
 # Download parquet tables with caching
 loc = HFLocation(

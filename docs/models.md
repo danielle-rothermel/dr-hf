@@ -303,6 +303,30 @@ class ParamGroupInfo(BaseModel):
 ```
 Per-parameter-group optimizer settings.
 
+## I/O Models
+
+### DatasetFileCommitEntry
+```python
+class DatasetFileCommitEntry(BaseModel):
+    local_path: Path
+    repo_path: str
+```
+Local file paired with its target relative POSIX path in a dataset repository.
+
+### DatasetCommitResult
+```python
+class DatasetCommitResult(BaseModel):
+    commit_oid: str
+    commit_url: HttpUrl
+    commit_message: str
+    commit_description: str
+    pr_url: HttpUrl | None = None
+    pr_num: int | None = None
+    pr_revision: str | None = None
+    file_urls: dict[str, HttpUrl]
+```
+Structured result from `commit_dataset_files_to_hf()`, including commit metadata, optional PR details, and per-file resolve URLs at the target revision.
+
 ## Computed Fields
 
 Several models use Pydantic `@computed_field` to derive values from base fields:

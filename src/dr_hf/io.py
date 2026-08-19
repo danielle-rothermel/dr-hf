@@ -1,41 +1,122 @@
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import CommitOperationAdd, HfApi, hf_hub_download
+from pydantic import HttpUrl
 
 from .location import HFLocation
+from .models import DatasetCommitResult, DatasetFileCommitEntry
 
 if TYPE_CHECKING:
     import duckdb as duckdb_module
 
 __all__ = [
     "cached_download_tables_from_hf",
+    "commit_dataset_files_to_hf",
     "get_tables_from_cache",
     "query_hf_with_duckdb",
     "read_local_parquet_paths",
-    "upload_file_to_hf",
 ]
 
 
-def upload_file_to_hf(
-    local_path: str | Path,
+def _validate_repo_path(repo_path: str) -> str:
+    if PurePosixPath(repo_path).is_absolute():
+        raise ValueError(f"repo_path must be relative, got: {repo_path!r}")
+    normalized = HFLocation.norm_posix(repo_path)
+    if not normalized or normalized == ".":
+        raise ValueError(f"Invalid repo_path: {repo_path!r}")
+    if ".." in PurePosixPath(normalized).parts:
+        raise ValueError(f"repo_path must not contain '..': {repo_path!r}")
+    return normalized
+
+
+def _validate_dataset_commit_inputs(
+    files: list[DatasetFileCommitEntry],
+    *,
+    revision: str,
+    expected_parent: str,
+    commit_message: str,
+) -> list[DatasetFileCommitEntry]:
+    if not files:
+        raise ValueError("files must be non-empty")
+    if not revision.strip():
+        raise ValueError("revision must be non-empty")
+    if not expected_parent.strip():
+        raise ValueError("expected_parent must be non-empty")
+    if not commit_message.strip():
+        raise ValueError("commit_message must be non-empty")
+
+    normalized: list[DatasetFileCommitEntry] = []
+    seen_repo_paths: set[str] = set()
+    for entry in files:
+        local_path = Path(entry.local_path)
+        if not local_path.exists():
+            raise FileNotFoundError(f"Local file not found: {local_path}")
+        if not local_path.is_file():
+            raise ValueError(f"Local path is not a file: {local_path}")
+        repo_path = _validate_repo_path(entry.repo_path)
+        if repo_path in seen_repo_paths:
+            raise ValueError(f"Duplicate repo_path: {repo_path!r}")
+        seen_repo_paths.add(repo_path)
+        normalized.append(
+            DatasetFileCommitEntry(local_path=local_path, repo_path=repo_path)
+        )
+    return normalized
+
+
+def commit_dataset_files_to_hf(
+    files: list[DatasetFileCommitEntry],
     hf_loc: HFLocation,
     *,
+    revision: str,
+    expected_parent: str,
+    commit_message: str,
+    commit_description: str | None = None,
+    create_pr: bool = False,
     hf_token: str | None = None,
-) -> str:
-    api = HfApi(token=hf_token)
-    path_in_repo = hf_loc.get_the_single_filepath()
-    api.upload_file(
-        path_or_fileobj=str(local_path),
-        repo_id=hf_loc.repo_id,
-        path_in_repo=path_in_repo,
-        repo_type=hf_loc.hf_hub_repo_type,
+) -> DatasetCommitResult:
+    normalized_files = _validate_dataset_commit_inputs(
+        files,
+        revision=revision,
+        expected_parent=expected_parent,
+        commit_message=commit_message,
     )
-    # Return the URL of the uploaded file
-    return str(hf_loc.get_file_download_link(path_in_repo))
+    operations = [
+        CommitOperationAdd(
+            path_in_repo=entry.repo_path,
+            path_or_fileobj=str(entry.local_path),
+        )
+        for entry in normalized_files
+    ]
+    commit_info = HfApi(token=hf_token).create_commit(
+        repo_id=hf_loc.repo_id,
+        operations=operations,
+        commit_message=commit_message,
+        commit_description=commit_description or "",
+        repo_type=hf_loc.hf_hub_repo_type,
+        revision=revision,
+        parent_commit=expected_parent,
+        create_pr=create_pr,
+    )
+    file_urls = {
+        entry.repo_path: hf_loc.get_file_download_link_for_revision(
+            entry.repo_path, revision
+        )
+        for entry in normalized_files
+    }
+    return DatasetCommitResult(
+        commit_oid=commit_info.oid,
+        commit_url=HttpUrl(commit_info.commit_url),
+        commit_message=commit_info.commit_message,
+        commit_description=commit_info.commit_description,
+        pr_url=HttpUrl(commit_info.pr_url) if commit_info.pr_url else None,
+        pr_num=commit_info.pr_num,
+        pr_revision=commit_info.pr_revision,
+        file_urls=file_urls,
+    )
 
 
 def get_tables_from_cache(

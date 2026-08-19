@@ -52,7 +52,7 @@ download_dataset(Path("./data/squad_train.parquet"), repo_id="squad", split="tra
 | **weights** | Model weight analysis | `analyze_model_weights`, `calculate_weight_statistics` ⚡ |
 | **checkpoints** | Checkpoint orchestration | `analyze_complete_checkpoint`, `process_all_checkpoints` ⚡ |
 | **datasets** | Dataset loading & caching | `load_or_download_dataset`, `download_dataset` |
-| **io** | HfApi upload/download | `upload_file_to_hf`, `cached_download_tables_from_hf` |
+| **io** | HfApi upload/download | `commit_dataset_files_to_hf`, `cached_download_tables_from_hf` |
 | **location** | HF resource URIs | `HFLocation`, `HFRepoID`, `HFResource` |
 | **paths** | Environment paths | `get_data_dir`, `get_repo_dir` |
 | **models** | Pydantic data models | `BranchInfo`, `ConfigAnalysis`, `WeightsAnalysis`, ... |
@@ -143,7 +143,8 @@ from dr_hf import (
 ### HfApi I/O
 ```python
 from dr_hf import (
-    upload_file_to_hf,            # upload file to HF repo
+    commit_dataset_files_to_hf,   # atomic multi-file dataset commit
+    DatasetFileCommitEntry,       # local path + repo path pair
     cached_download_tables_from_hf,# download parquet with caching
     get_tables_from_cache,        # read cached parquet files
     read_local_parquet_paths,     # list local parquet files

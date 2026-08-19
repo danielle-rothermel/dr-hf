@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, HttpUrl, computed_field
 
 
 class BranchInfo(BaseModel):
@@ -314,3 +315,19 @@ class CheckpointSummaryRow(BaseModel):
             row.weights_error = wgt.error
 
         return row
+
+
+class DatasetFileCommitEntry(BaseModel):
+    local_path: Path
+    repo_path: str
+
+
+class DatasetCommitResult(BaseModel):
+    commit_oid: str
+    commit_url: HttpUrl
+    commit_message: str
+    commit_description: str
+    pr_url: HttpUrl | None = None
+    pr_num: int | None = None
+    pr_revision: str | None = None
+    file_urls: dict[str, HttpUrl]

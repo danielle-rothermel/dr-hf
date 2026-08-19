@@ -182,11 +182,16 @@ class HFLocation(BaseModel):
         return HttpUrl(f"{self.rest_api_repo_url}/tree/main/{path}")
 
     def get_file_download_link(self, filepath: str | Path) -> HttpUrl:
+        return self.get_file_download_link_for_revision(filepath, "main")
+
+    def get_file_download_link_for_revision(
+        self, filepath: str | Path, revision: str
+    ) -> HttpUrl:
         path = self.norm_posix(filepath)
         assert not self._is_dir(path), (
             "Download link only supports files, not directories."
         )
-        return HttpUrl(f"{self.repo_link}/resolve/main/{path}")
+        return HttpUrl(f"{self.repo_link}/resolve/{revision}/{path}")
 
     def get_uris_for_files(
         self,
