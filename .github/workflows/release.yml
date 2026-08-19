@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
 
 permissions: {}
 
@@ -55,6 +56,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Verify tag matches pyproject version
+        if: github.event_name == 'push'
         run: |
           version="$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")"
           expected="v${version}"
@@ -91,6 +93,7 @@ jobs:
 
   publish:
     name: Publish to PyPI
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     environment:
