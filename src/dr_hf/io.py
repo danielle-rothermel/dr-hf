@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,8 @@ from huggingface_hub import (
     HfApi,
     hf_hub_download,
 )
+from huggingface_hub._commit_api import _fetch_upload_modes
+from huggingface_hub.utils import build_hf_headers
 from pydantic import HttpUrl
 
 from .location import HFLocation
@@ -25,6 +28,36 @@ __all__ = [
     "query_hf_with_duckdb",
     "read_local_parquet_paths",
 ]
+
+_COMMIT_OID_RE = re.compile(r"^[0-9a-fA-F]{4,40}$")
+
+
+def _normalize_commit_oid(
+    oid: str,
+    *,
+    field_name: str = "expected_parent",
+) -> str:
+    stripped = oid.strip()
+    if not stripped:
+        msg = f"{field_name} must be non-empty"
+        raise ValueError(msg)
+    if not _COMMIT_OID_RE.fullmatch(stripped):
+        msg = (
+            f"{field_name} must be a valid commit OID "
+            f"(4-40 hexadecimal characters), got {oid!r}"
+        )
+        raise ValueError(msg)
+    return stripped.lower()
+
+
+def _commit_oids_equal(left: str, right: str) -> bool:
+    normalized_left = _normalize_commit_oid(left)
+    normalized_right = _normalize_commit_oid(right)
+    if len(normalized_left) <= len(normalized_right):
+        shorter, longer = normalized_left, normalized_right
+    else:
+        shorter, longer = normalized_right, normalized_left
+    return longer.startswith(shorter)
 
 
 def _validate_repo_path(repo_path: str) -> str:
@@ -44,15 +77,14 @@ def _validate_dataset_commit_inputs(
     revision: str,
     expected_parent: str,
     commit_message: str,
-) -> list[DatasetFileCommitEntry]:
+) -> tuple[list[DatasetFileCommitEntry], str]:
     if not files:
         raise ValueError("files must be non-empty")
     if not revision.strip():
         raise ValueError("revision must be non-empty")
-    if not expected_parent.strip():
-        raise ValueError("expected_parent must be non-empty")
     if not commit_message.strip():
         raise ValueError("commit_message must be non-empty")
+    canonical_parent = _normalize_commit_oid(expected_parent)
 
     normalized: list[DatasetFileCommitEntry] = []
     seen_repo_paths: set[str] = set()
@@ -69,23 +101,80 @@ def _validate_dataset_commit_inputs(
         normalized.append(
             DatasetFileCommitEntry(local_path=local_path, repo_path=repo_path)
         )
-    return normalized
+    return normalized, canonical_parent
 
 
-def _commit_was_created(
+def _revision_head_sha(
+    api: HfApi,
+    hf_loc: HFLocation,
+    *,
+    revision: str,
+) -> str:
+    repo_head = api.repo_info(
+        repo_id=hf_loc.repo_id,
+        repo_type=hf_loc.hf_hub_repo_type,
+        revision=revision,
+    ).sha
+    if not repo_head:
+        msg = f"Could not resolve revision head for {revision!r}"
+        raise ValueError(msg)
+    return _normalize_commit_oid(repo_head, field_name="revision head")
+
+
+def _files_unchanged_on_hub(
+    api: HfApi,
+    hf_loc: HFLocation,
+    revision: str,
+    operations: list[CommitOperationAdd],
+    *,
+    create_pr: bool,
+) -> bool:
+    if not operations:
+        return True
+    headers = build_hf_headers(token=api.token, library_name="dr-hf")
+    _fetch_upload_modes(
+        operations,
+        repo_type=hf_loc.hf_hub_repo_type,
+        repo_id=hf_loc.repo_id,
+        headers=headers,
+        revision=revision,
+        create_pr=create_pr,
+    )
+    for operation in operations:
+        if operation._remote_oid is None:
+            return False
+        if operation._local_oid != operation._remote_oid:
+            return False
+    return True
+
+
+def _commit_was_created(  # noqa: PLR0913
     commit_info: CommitInfo,
     *,
     expected_parent: str,
     head_before: str,
+    head_after: str,
+    create_pr: bool,
+    files_unchanged: bool,
 ) -> bool:
-    if commit_info.oid == expected_parent:
+    if create_pr:
+        return bool(commit_info.pr_url or commit_info.pr_revision)
+
+    oid = _normalize_commit_oid(commit_info.oid)
+    if _commit_oids_equal(oid, expected_parent):
         return False
-    if commit_info.oid == head_before:
-        msg = (
-            "expected_parent is stale: Hub returned revision head "
-            f"{commit_info.oid!r} without creating a commit"
-        )
-        raise ValueError(msg)
+
+    if files_unchanged and _commit_oids_equal(oid, head_after):
+        if _commit_oids_equal(head_before, head_after):
+            if not _commit_oids_equal(expected_parent, head_after):
+                msg = (
+                    "expected_parent is stale: Hub returned revision head "
+                    f"{commit_info.oid!r} without creating a commit"
+                )
+                raise ValueError(msg)
+            return False
+        return False
+
     return True
 
 
@@ -100,7 +189,7 @@ def commit_dataset_files_to_hf(  # noqa: PLR0913
     create_pr: bool = False,
     hf_token: str | None = None,
 ) -> DatasetCommitResult:
-    normalized_files = _validate_dataset_commit_inputs(
+    normalized_files, canonical_parent = _validate_dataset_commit_inputs(
         files,
         revision=revision,
         expected_parent=expected_parent,
@@ -114,15 +203,7 @@ def commit_dataset_files_to_hf(  # noqa: PLR0913
         for entry in normalized_files
     ]
     api = HfApi(token=hf_token)
-    repo_head = api.repo_info(
-        repo_id=hf_loc.repo_id,
-        repo_type=hf_loc.hf_hub_repo_type,
-        revision=revision,
-    ).sha
-    if not repo_head:
-        msg = f"Could not resolve revision head for {revision!r}"
-        raise ValueError(msg)
-    head_before = repo_head
+    head_before = _revision_head_sha(api, hf_loc, revision=revision)
     commit_info = api.create_commit(
         repo_id=hf_loc.repo_id,
         operations=operations,
@@ -130,13 +211,24 @@ def commit_dataset_files_to_hf(  # noqa: PLR0913
         commit_description=commit_description or "",
         repo_type=hf_loc.hf_hub_repo_type,
         revision=revision,
-        parent_commit=expected_parent,
+        parent_commit=canonical_parent,
+        create_pr=create_pr,
+    )
+    head_after = _revision_head_sha(api, hf_loc, revision=revision)
+    files_unchanged = _files_unchanged_on_hub(
+        api,
+        hf_loc,
+        revision,
+        operations,
         create_pr=create_pr,
     )
     created = _commit_was_created(
         commit_info,
-        expected_parent=expected_parent,
+        expected_parent=canonical_parent,
         head_before=head_before,
+        head_after=head_after,
+        create_pr=create_pr,
+        files_unchanged=files_unchanged,
     )
     url_revision = commit_info.pr_revision or revision
     file_urls = {

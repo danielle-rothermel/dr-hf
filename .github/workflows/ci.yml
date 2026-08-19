@@ -48,14 +48,14 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: false
-      # datasets 2.18.0 is the lowest version verified compatible with hub 0.20.0.
+      # Floors must match pyproject.toml minimums and provide cp312 wheels.
       - name: Smoke-test import against declared dependency floors
         run: |
           uv venv .min-venv --python 3.12
           uv pip install --python .min-venv/bin/python \
             "huggingface-hub==0.20.0" \
-            "datasets==2.18.0" \
-            "pandas==2.0.0" \
+            "datasets==2.0.0" \
+            "pandas==2.1.1" \
             "pydantic==2.0.0" \
             "python-dotenv==1.0.0"
           uv pip install --python .min-venv/bin/python -e . --no-deps

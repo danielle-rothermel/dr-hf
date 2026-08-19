@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
     "huggingface_hub>=0.20.0",
     "datasets>=2.0.0",
-    "pandas>=2.0.0",
+    "pandas>=2.1.1",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
 ]
@@ -124,7 +124,8 @@ select = [
 ignore = ["PLR1711", "S101", "TRY003"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR2004", "PLC0415", "S106"]
+"tests/**/*.py" = ["PLR2004", "PLC0415", "S106", "ARG001"]
+"src/dr_hf/io.py" = ["PLC2701"]
 "src/dr_hf/__init__.py" = ["PLC0415"]
 "src/dr_hf/_torch.py" = ["PLC0415", "PLW0603"]
 "src/dr_hf/models.py" = ["TC003"]
