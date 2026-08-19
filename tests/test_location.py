@@ -76,9 +76,7 @@ def test_hflocation_resolve_link_encodes_revision_segment() -> None:
         "data/file.parquet",
         "refs/pr/7",
     )
-    assert str(pr_url).endswith(
-        "/resolve/refs%2Fpr%2F7/data/file.parquet"
-    )
+    assert str(pr_url).endswith("/resolve/refs%2Fpr%2F7/data/file.parquet")
 
     branch_url = loc.get_file_download_link_for_revision(
         "data/file.parquet",

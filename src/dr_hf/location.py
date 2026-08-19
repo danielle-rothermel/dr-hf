@@ -217,9 +217,7 @@ class HFLocation(BaseModel):
             "Download link only supports files, not directories."
         )
         encoded_revision = quote(revision, safe="")
-        return HttpUrl(
-            f"{self.repo_link}/resolve/{encoded_revision}/{path}"
-        )
+        return HttpUrl(f"{self.repo_link}/resolve/{encoded_revision}/{path}")
 
     def get_uris_for_files(
         self,
