@@ -67,7 +67,7 @@ def _validate_dataset_commit_inputs(
     return normalized
 
 
-def commit_dataset_files_to_hf(
+def commit_dataset_files_to_hf(  # noqa: PLR0913
     files: list[DatasetFileCommitEntry],
     hf_loc: HFLocation,
     *,
@@ -142,8 +142,9 @@ def query_hf_with_duckdb(
             ).df()
     except ValueError as e:
         raise ValueError(
-            f"Mismatch between resolved_paths ({len(resolved_paths)} items) and "
-            f"hf_uris from hf_loc.get_uris_for_files ({len(hf_uris)} items). "
+            f"Mismatch between resolved_paths ({len(resolved_paths)} items) "
+            f"and hf_uris from hf_loc.get_uris_for_files "
+            f"({len(hf_uris)} items). "
             f"resolved_paths: {resolved_paths}"
         ) from e
     return results
@@ -162,7 +163,10 @@ def cached_download_tables_from_hf(
 
     if not force_download and all(Path(fp).exists() for fp in local_paths):
         if verbose:
-            print(f">> All tables already cached:\n - {'\n - '.join(local_paths)}")
+            print(
+                ">> All tables already cached:\n - "
+                + "\n - ".join(local_paths)
+            )
         return {Path(fp).stem: fp for fp in local_paths}
 
     cache_path.mkdir(parents=True, exist_ok=True)

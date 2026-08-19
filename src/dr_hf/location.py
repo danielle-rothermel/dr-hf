@@ -1,17 +1,23 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
 from pathlib import Path, PurePosixPath
-from typing import Annotated, ClassVar
+from typing import TYPE_CHECKING, Annotated, ClassVar
 
 from pydantic import BaseModel, Field, HttpUrl, computed_field, field_validator
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 __all__ = ["HFLocation", "HFRepoID", "HFResource"]
 
 HFRepoID = Annotated[
     str,
-    Field(description="Hugging Face repo ID (e.g. allenai/DataDecide-eval-results)"),
+    Field(
+        description=(
+            "Hugging Face repo ID (e.g. allenai/DataDecide-eval-results)"
+        )
+    ),
 ]
 
 HFResource = Annotated[
@@ -45,7 +51,9 @@ class HFLocation(BaseModel):
     @computed_field
     @property
     def repo_link(self) -> HttpUrl:
-        return HttpUrl(f"https://huggingface.co/{self.repo_type}/{self.repo_id}")
+        return HttpUrl(
+            f"https://huggingface.co/{self.repo_type}/{self.repo_id}"
+        )
 
     @computed_field
     @property
@@ -73,36 +81,41 @@ class HFLocation(BaseModel):
             raise AssertionError("HF URI must be a non-empty string.")
         prefix = cls.uri_prefix
         if not uri.startswith(prefix):
-            raise AssertionError(f"HF URI must start with '{prefix}'. Got: {uri!r}")
+            raise AssertionError(
+                f"HF URI must start with '{prefix}'. Got: {uri!r}"
+            )
         stripped = uri[len(prefix) :]
 
         parts = [part for part in stripped.split("/") if part]
-        if len(parts) < 2:
+        if len(parts) < 2:  # noqa: PLR2004
             raise ValueError(
                 "HF URI must include at least org and repo, e.g. 'hf://datasets/org/repo'."
             )
 
         expected_repo_type = cls.repo_type
         alias_map = {expected_repo_type: expected_repo_type}
-        alias_map.update(dict.fromkeys(cls.repo_type_aliases, expected_repo_type))
+        alias_map.update(
+            dict.fromkeys(cls.repo_type_aliases, expected_repo_type)
+        )
 
         potential_repo_type = parts[0]
         normalized = alias_map.get(potential_repo_type)
         if normalized:
             if normalized != expected_repo_type:
                 raise ValueError(
-                    f"HF URI repo type '{potential_repo_type}' does not match expected "
-                    f"'{expected_repo_type}'."
+                    f"HF URI repo type '{potential_repo_type}' does not "
+                    f"match expected '{expected_repo_type}'."
                 )
             org_repo_parts = parts[1:]
-        elif len(parts) == 2:
+        elif len(parts) == 2:  # noqa: PLR2004
             org_repo_parts = parts
         else:
             raise ValueError(
-                "HF URI with nested paths must start with 'hf://datasets/' or 'hf://dataset/'."
+                "HF URI with nested paths must start with "
+                "'hf://datasets/' or 'hf://dataset/'."
             )
 
-        if len(org_repo_parts) < 2:
+        if len(org_repo_parts) < 2:  # noqa: PLR2004
             raise ValueError(
                 "HF URI must include both org and repo names, e.g. 'hf://datasets/org/repo'."
             )
@@ -118,7 +131,9 @@ class HFLocation(BaseModel):
 
     @field_validator("filepaths")
     @classmethod
-    def posix_norm_filepaths(cls, v: list[str | Path] | None) -> list[str] | None:
+    def posix_norm_filepaths(
+        cls, v: list[str | Path] | None
+    ) -> list[str] | None:
         if v is None:
             return None
         return [cls.norm_posix(p) for p in v]
@@ -132,13 +147,16 @@ class HFLocation(BaseModel):
     def _is_dir(path: str | Path) -> bool:
         if Path(path).exists():
             return Path(path).is_dir()
-        else:
-            return str(path).endswith(os.path.sep)
+        return str(path).endswith(os.path.sep)
 
-    def get_the_single_filepath(self, local_dir: str | Path | None = None) -> str:
+    def get_the_single_filepath(
+        self, local_dir: str | Path | None = None
+    ) -> str:
         return self.resolve_filepaths(local_dir=local_dir, expect_one=True)[0]
 
-    def build_local_dir(self, local_dir: str | Path | None = None) -> str | None:
+    def build_local_dir(
+        self, local_dir: str | Path | None = None
+    ) -> str | None:
         dir_parts = [str(local_dir or "")]
         if self.local_path_include_org:
             dir_parts.append(self.org)
@@ -150,6 +168,7 @@ class HFLocation(BaseModel):
         self,
         extra_paths: list[str | Path] | None = None,
         local_dir: str | Path | None = None,
+        *,
         required: bool = True,
         expect_one: bool = False,
     ) -> list[str]:
@@ -163,9 +182,13 @@ class HFLocation(BaseModel):
             seen[path] = None
         paths = list(seen.keys())
         if local_dir:
-            paths = [f"{self.build_local_dir(local_dir)}/{path}" for path in paths]
+            paths = [
+                f"{self.build_local_dir(local_dir)}/{path}" for path in paths
+            ]
         assert not (required and not paths), "No filepaths found"
-        assert not (expect_one and len(paths) != 1), "Expected exactly one filepath"
+        assert not (expect_one and len(paths) != 1), (
+            "Expected exactly one filepath"
+        )
         return paths
 
     def get_path_uri(self, path: str | Path) -> HFResource:
@@ -178,7 +201,9 @@ class HFLocation(BaseModel):
 
     def get_rest_path_url(self, path: str | Path) -> HttpUrl:
         path = self.norm_posix(path)
-        assert self._is_dir(path), "REST endpoint only supports directories, not files."
+        assert self._is_dir(path), (
+            "REST endpoint only supports directories, not files."
+        )
         return HttpUrl(f"{self.rest_api_repo_url}/tree/main/{path}")
 
     def get_file_download_link(self, filepath: str | Path) -> HttpUrl:
@@ -196,6 +221,7 @@ class HFLocation(BaseModel):
     def get_uris_for_files(
         self,
         filepaths: Iterable[str | Path] | None = None,
+        *,
         ignore_cfg_files: bool = False,
     ) -> list[HFResource]:
         items: list[str | Path] = list(filepaths or [])

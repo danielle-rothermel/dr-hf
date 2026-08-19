@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +9,9 @@ from huggingface_hub import CommitInfo
 from dr_hf import commit_dataset_files_to_hf
 from dr_hf.location import HFLocation
 from dr_hf.models import DatasetFileCommitEntry
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
@@ -78,8 +80,12 @@ def test_commit_rejects_duplicate_repo_paths(
     file_a.write_bytes(b"a")
     file_b.write_bytes(b"b")
     entries = [
-        DatasetFileCommitEntry(local_path=file_a, repo_path="data/same.parquet"),
-        DatasetFileCommitEntry(local_path=file_b, repo_path="data/same.parquet"),
+        DatasetFileCommitEntry(
+            local_path=file_a, repo_path="data/same.parquet"
+        ),
+        DatasetFileCommitEntry(
+            local_path=file_b, repo_path="data/same.parquet"
+        ),
     ]
     with pytest.raises(ValueError, match="Duplicate repo_path"):
         commit_dataset_files_to_hf(entries, hf_loc, **_commit_kwargs())

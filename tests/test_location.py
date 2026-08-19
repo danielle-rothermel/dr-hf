@@ -29,7 +29,9 @@ def test_hflocation_from_uri_simple() -> None:
 
 
 def test_hflocation_from_uri_with_path() -> None:
-    loc = HFLocation.from_uri("hf://datasets/allenai/test-dataset/data/train.parquet")
+    loc = HFLocation.from_uri(
+        "hf://datasets/allenai/test-dataset/data/train.parquet"
+    )
     assert loc.org == "allenai"
     assert loc.repo_name == "test-dataset"
     assert loc.filepaths == ["data/train.parquet"]

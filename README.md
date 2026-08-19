@@ -214,6 +214,18 @@ from dr_hf import (
 )
 ```
 
+## Development
+
+Install dependencies and the commit hook once per clone:
+
+```bash
+uv sync --locked
+uv run pre-commit install
+```
+
+The hook runs `scripts/pre-check.sh` for Ruff formatting, Ruff lint, and type
+checking, followed by the test suite.
+
 ## License
 
 MIT

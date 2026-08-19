@@ -233,11 +233,12 @@ class WeightsAnalysis(BaseModel):
     @computed_field
     @property
     def weights_available(self) -> bool:
-        """Alias for `available` field, maintained for API/serialization stability.
+        """Alias for `available`, kept for API/serialization stability.
 
-        This property mirrors `available` to provide a consistent naming convention
-        in serialized outputs (e.g., JSON) where `weights_available` may be expected
-        by external consumers or for consistency with other component fields.
+        This property mirrors `available` to provide a consistent naming
+        convention in serialized outputs (e.g., JSON) where
+        `weights_available` may be expected by external consumers or for
+        consistency with other component fields.
         """
         return self.available
 
@@ -276,7 +277,9 @@ class CheckpointSummaryRow(BaseModel):
     weights_error: str = ""
 
     @classmethod
-    def from_analysis(cls, analysis: CheckpointAnalysis) -> CheckpointSummaryRow:
+    def from_analysis(
+        cls, analysis: CheckpointAnalysis
+    ) -> CheckpointSummaryRow:
         row = cls(branch=analysis.branch, step=analysis.step)
 
         opt = analysis.components.optimizer
@@ -310,7 +313,9 @@ class CheckpointSummaryRow(BaseModel):
         wgt = analysis.components.weights
         row.weights_available = wgt.available
         if wgt.available and wgt.summary:
-            row.total_weight_params_millions = wgt.summary.total_parameters_millions
+            row.total_weight_params_millions = (
+                wgt.summary.total_parameters_millions
+            )
         elif wgt.error:
             row.weights_error = wgt.error
 
