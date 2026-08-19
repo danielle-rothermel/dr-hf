@@ -31,6 +31,7 @@ jobs:
             pyproject.toml
             uv.lock
       - run: uv sync --locked
+      - run: uvx tombi@1.2.5 lint .defs/terms.toml .defs/contracts.toml
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run ty check

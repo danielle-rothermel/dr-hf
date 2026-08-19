@@ -1,5 +1,9 @@
 # dr-hf
 
+[Definitions](https://danielle-rothermel.github.io/dr-hf/) ·
+[Terms](https://github.com/danielle-rothermel/dr-hf/blob/main/.defs/terms.toml) ·
+[Contracts](https://github.com/danielle-rothermel/dr-hf/blob/main/.defs/contracts.toml)
+
 HuggingFace utilities for repository management, dataset operations, and model analysis.
 
 ## Installation
@@ -61,6 +65,7 @@ download_dataset(Path("./data/squad_train.parquet"), repo_id="squad", split="tra
 
 ## Documentation
 
+- [Definitions site](https://danielle-rothermel.github.io/dr-hf/) — shared vocabulary and binding contracts ([terms](.defs/terms.toml), [contracts](.defs/contracts.toml); agents read the TOML directly)
 - [Full API Reference](docs/api.md)
 - Module guides: [branches](docs/branches.md) | [configs](docs/configs.md) | [weights](docs/weights.md) | [checkpoints](docs/checkpoints.md) | [datasets](docs/datasets.md) | [io](docs/io.md) | [location](docs/location.md) | [paths](docs/paths.md)
 - [Pydantic Models](docs/models.md)
