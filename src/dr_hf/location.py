@@ -72,6 +72,7 @@ class HFLocation(BaseModel):
     def from_uri(
         cls,
         uri: str,
+        *,
         filepaths: Iterable[str] | None = None,
     ) -> HFLocation:
         if not isinstance(uri, str):

@@ -49,6 +49,18 @@ def _commit_kwargs(
     }
 
 
+def _mock_hf_api(
+    mock_hf_api_cls: MagicMock,
+    *,
+    head_before: str,
+    commit_info: CommitInfo,
+) -> MagicMock:
+    mock_api = mock_hf_api_cls.return_value
+    mock_api.repo_info.return_value = MagicMock(sha=head_before)
+    mock_api.create_commit.return_value = commit_info
+    return mock_api
+
+
 def test_commit_rejects_empty_files(hf_loc: HFLocation) -> None:
     with pytest.raises(ValueError, match="files must be non-empty"):
         commit_dataset_files_to_hf([], hf_loc, **_commit_kwargs())
@@ -154,6 +166,9 @@ def test_commit_calls_create_commit_with_expected_args(
         commit_description="",
         oid="oid123",
     )
+    mock_hf_api_cls.return_value.repo_info.return_value = MagicMock(
+        sha="parent123"
+    )
 
     result = commit_dataset_files_to_hf(
         entries,
@@ -191,19 +206,23 @@ def test_commit_calls_create_commit_with_expected_args(
     )
 
 
-@patch("dr_hf.io.HfApi.create_commit")
+@patch("dr_hf.io.HfApi")
 def test_commit_maps_pr_fields(
-    mock_create_commit: MagicMock,
+    mock_hf_api_cls: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
     entry = _make_entry(local_file, "data/file.parquet")
-    mock_create_commit.return_value = CommitInfo(
-        commit_url="https://huggingface.co/datasets/test-org/test-dataset/commit/oid123",
-        commit_message="Add dataset files",
-        commit_description="details",
-        oid="oid123",
-        pr_url="https://huggingface.co/datasets/test-org/test-dataset/discussions/7",
+    _mock_hf_api(
+        mock_hf_api_cls,
+        head_before="abc1234",
+        commit_info=CommitInfo(
+            commit_url="https://huggingface.co/datasets/test-org/test-dataset/commit/oid123",
+            commit_message="Add dataset files",
+            commit_description="details",
+            oid="oid123",
+            pr_url="https://huggingface.co/datasets/test-org/test-dataset/discussions/7",
+        ),
     )
 
     result = commit_dataset_files_to_hf(
@@ -213,7 +232,12 @@ def test_commit_maps_pr_fields(
         create_pr=True,
     )
 
-    assert mock_create_commit.call_args.kwargs["create_pr"] is True
+    assert (
+        mock_hf_api_cls.return_value.create_commit.call_args.kwargs[
+            "create_pr"
+        ]
+        is True
+    )
     assert result.created is True
     assert result.pr_num == 7
     assert result.pr_revision == "refs/pr/7"
@@ -223,18 +247,22 @@ def test_commit_maps_pr_fields(
     )
 
 
-@patch("dr_hf.io.HfApi.create_commit")
+@patch("dr_hf.io.HfApi")
 def test_commit_noop_when_oid_matches_expected_parent(
-    mock_create_commit: MagicMock,
+    mock_hf_api_cls: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
     entry = _make_entry(local_file, "data/file.parquet")
-    mock_create_commit.return_value = CommitInfo(
-        commit_url="https://huggingface.co/datasets/test-org/test-dataset/commit/abc1234",
-        commit_message="Add dataset files",
-        commit_description="",
-        oid="abc1234",
+    _mock_hf_api(
+        mock_hf_api_cls,
+        head_before="abc1234",
+        commit_info=CommitInfo(
+            commit_url="https://huggingface.co/datasets/test-org/test-dataset/commit/abc1234",
+            commit_message="Add dataset files",
+            commit_description="",
+            oid="abc1234",
+        ),
     )
 
     result = commit_dataset_files_to_hf(
@@ -249,18 +277,22 @@ def test_commit_noop_when_oid_matches_expected_parent(
     assert result.commit_oid == "abc1234"
 
 
-@patch("dr_hf.io.HfApi.create_commit")
+@patch("dr_hf.io.HfApi")
 def test_commit_rejects_stale_parent_noop(
-    mock_create_commit: MagicMock,
+    mock_hf_api_cls: MagicMock,
     hf_loc: HFLocation,
     local_file: Path,
 ) -> None:
     entry = _make_entry(local_file, "data/file.parquet")
-    mock_create_commit.return_value = CommitInfo(
-        commit_url="https://huggingface.co/datasets/test-org/test-dataset/commit/current_head",
-        commit_message="",
-        commit_description="",
-        oid="current_head",
+    _mock_hf_api(
+        mock_hf_api_cls,
+        head_before="current_head",
+        commit_info=CommitInfo(
+            commit_url="https://huggingface.co/datasets/test-org/test-dataset/commit/current_head",
+            commit_message="Add dataset files",
+            commit_description="",
+            oid="current_head",
+        ),
     )
 
     with pytest.raises(ValueError, match="expected_parent is stale"):
@@ -271,3 +303,90 @@ def test_commit_rejects_stale_parent_noop(
             expected_parent="stale_parent",
             commit_message="Add dataset files",
         )
+
+
+@patch("dr_hf.io.HfApi")
+def test_commit_pr_noop_when_oid_matches_expected_parent(
+    mock_hf_api_cls: MagicMock,
+    hf_loc: HFLocation,
+    local_file: Path,
+) -> None:
+    entry = _make_entry(local_file, "data/file.parquet")
+    _mock_hf_api(
+        mock_hf_api_cls,
+        head_before="abc1234",
+        commit_info=CommitInfo(
+            commit_url="https://huggingface.co/datasets/test-org/test-dataset/commit/abc1234",
+            commit_message="Add dataset files",
+            commit_description="",
+            oid="abc1234",
+        ),
+    )
+
+    result = commit_dataset_files_to_hf(
+        [entry],
+        hf_loc,
+        **_commit_kwargs(),
+        create_pr=True,
+    )
+
+    assert result.created is False
+    assert result.commit_oid == "abc1234"
+    assert result.pr_url is None
+
+
+@patch("dr_hf.io.HfApi")
+def test_commit_pr_stale_parent_noop(
+    mock_hf_api_cls: MagicMock,
+    hf_loc: HFLocation,
+    local_file: Path,
+) -> None:
+    entry = _make_entry(local_file, "data/file.parquet")
+    _mock_hf_api(
+        mock_hf_api_cls,
+        head_before="current_head",
+        commit_info=CommitInfo(
+            commit_url="https://huggingface.co/datasets/test-org/test-dataset/commit/current_head",
+            commit_message="Add dataset files",
+            commit_description="",
+            oid="current_head",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="expected_parent is stale"):
+        commit_dataset_files_to_hf(
+            [entry],
+            hf_loc,
+            revision="main",
+            expected_parent="stale_parent",
+            commit_message="Add dataset files",
+            create_pr=True,
+        )
+
+
+@patch("dr_hf.io.HfApi")
+def test_commit_real_commit_uses_new_oid(
+    mock_hf_api_cls: MagicMock,
+    hf_loc: HFLocation,
+    local_file: Path,
+) -> None:
+    entry = _make_entry(local_file, "data/file.parquet")
+    _mock_hf_api(
+        mock_hf_api_cls,
+        head_before="abc1234",
+        commit_info=CommitInfo(
+            commit_url="https://huggingface.co/datasets/test-org/test-dataset/commit/new_oid",
+            commit_message="Add dataset files",
+            commit_description="",
+            oid="new_oid",
+        ),
+    )
+
+    result = commit_dataset_files_to_hf(
+        [entry],
+        hf_loc,
+        **_commit_kwargs(),
+    )
+
+    assert result.created is True
+    assert result.commit_oid == "new_oid"

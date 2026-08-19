@@ -37,6 +37,14 @@ def test_hflocation_from_uri_with_path() -> None:
     assert loc.filepaths == ["data/train.parquet"]
 
 
+def test_hflocation_from_uri_filepaths_keyword_only() -> None:
+    with pytest.raises(TypeError):
+        HFLocation.from_uri(
+            "hf://datasets/allenai/test-dataset",
+            ["data/train.parquet"],  # ty: ignore[too-many-positional-arguments]
+        )
+
+
 def test_hflocation_from_uri_invalid() -> None:
     with pytest.raises(AssertionError):
         HFLocation.from_uri("invalid://not-hf")

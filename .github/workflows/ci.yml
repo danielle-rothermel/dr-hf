@@ -36,3 +36,27 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ty check
       - run: uv run pytest
+
+  minimum-deps:
+    name: Minimum dependency floor (Python 3.12)
+    runs-on: depot-ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1 # v8.3.1
+        with:
+          python-version: "3.12"
+          enable-cache: false
+      # datasets 2.18.0 is the lowest version verified compatible with hub 0.20.0.
+      - name: Smoke-test import against declared dependency floors
+        run: |
+          uv venv .min-venv --python 3.12
+          uv pip install --python .min-venv/bin/python \
+            "huggingface-hub==0.20.0" \
+            "datasets==2.18.0" \
+            "pandas==2.0.0" \
+            "pydantic==2.0.0" \
+            "python-dotenv==1.0.0"
+          uv pip install --python .min-venv/bin/python -e . --no-deps
+          .min-venv/bin/python -c "import dr_hf; assert dr_hf.__version__"

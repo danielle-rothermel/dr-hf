@@ -76,20 +76,17 @@ def _commit_was_created(
     commit_info: CommitInfo,
     *,
     expected_parent: str,
-    commit_message: str,
-    create_pr: bool,
+    head_before: str,
 ) -> bool:
     if commit_info.oid == expected_parent:
         return False
-    if create_pr:
-        return True
-    if commit_info.commit_message == commit_message:
-        return True
-    msg = (
-        "expected_parent is stale: Hub returned revision head "
-        f"{commit_info.oid!r} without creating a commit"
-    )
-    raise ValueError(msg)
+    if commit_info.oid == head_before:
+        msg = (
+            "expected_parent is stale: Hub returned revision head "
+            f"{commit_info.oid!r} without creating a commit"
+        )
+        raise ValueError(msg)
+    return True
 
 
 def commit_dataset_files_to_hf(  # noqa: PLR0913
@@ -116,7 +113,17 @@ def commit_dataset_files_to_hf(  # noqa: PLR0913
         )
         for entry in normalized_files
     ]
-    commit_info = HfApi(token=hf_token).create_commit(
+    api = HfApi(token=hf_token)
+    repo_head = api.repo_info(
+        repo_id=hf_loc.repo_id,
+        repo_type=hf_loc.hf_hub_repo_type,
+        revision=revision,
+    ).sha
+    if not repo_head:
+        msg = f"Could not resolve revision head for {revision!r}"
+        raise ValueError(msg)
+    head_before = repo_head
+    commit_info = api.create_commit(
         repo_id=hf_loc.repo_id,
         operations=operations,
         commit_message=commit_message,
@@ -129,8 +136,7 @@ def commit_dataset_files_to_hf(  # noqa: PLR0913
     created = _commit_was_created(
         commit_info,
         expected_parent=expected_parent,
-        commit_message=commit_message,
-        create_pr=create_pr,
+        head_before=head_before,
     )
     url_revision = commit_info.pr_revision or revision
     file_urls = {
