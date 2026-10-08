@@ -1,39 +1,25 @@
 # dr_hf Documentation
 
-HuggingFace utilities for repository management, dataset operations, and model analysis.
-
-## Design Philosophy
-
-- **Type-safe**: Comprehensive Pydantic models for all data structures
-- **Optional dependencies**: Core features work without PyTorch; weight analysis optional
-- **Fail fast**: Uses assertions for validation, not silent failures
-- **Lazy loading**: Heavy dependencies loaded only when needed
+Hugging Face Hub identity layer: which dataset rows and which model weights,
+fixed at commit SHAs. Loading models and running inference live in
+dr-providers.
 
 ## Modules
 
-### Repository Operations
-- [branches](branches.md) - Branch discovery, parsing, and metadata extraction
-- [location](location.md) - Pydantic model for HF resource URIs
+### Datasets
+- [pins](pins.md) - dataset and model pins resolved to commit SHAs
+- [datasets](datasets.md) - all-split reader with origin split and native id
+- [subsets](subsets.md) - named subsets, derivations, and the subset registry
 
-### Model Analysis
-- [configs](configs.md) - Model config.json analysis and architecture extraction
-- [weights](weights.md) - Model weight statistics and layer analysis (requires `[weights]`)
-- [checkpoints](checkpoints.md) - Checkpoint orchestration combining configs, weights, optimizer (requires `[weights]`)
+### Models
+- [branches](branches.md) - checkpoint branch discovery and `stepN-seed-*` parsing
+- [publishing](publishing.md) - model upload with card, provenance, and tags
 
-### Data Operations
-- [datasets](datasets.md) - Dataset loading, downloading, and caching
-- [io](io.md) - HfApi upload/download operations
-
-### Utilities
-- [paths](paths.md) - Environment path management
-
-### Data Models
-- [models](models.md) - All Pydantic models for type-safe data handling
-
-## Common Patterns
-
-See [Recipes & Patterns](recipes.md) for common usage patterns.
+### Hub writes and locations
+- [io](io.md) - atomic multi-file dataset commits
+- [location](location.md) - `HFLocation` dataset repository references
+- [models](models.md) - branch metadata and dataset commit models
 
 ## API Reference
 
-See [Full API Reference](api.md) for auto-generated documentation.
+See [API Reference](api.md) for auto-generated documentation.

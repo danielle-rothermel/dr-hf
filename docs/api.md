@@ -22,35 +22,17 @@ Generates static HTML documentation in `docs/api_html/`.
 
 ## Module Index
 
-- `dr_hf.branches` - Branch discovery and parsing
-- `dr_hf.configs` - Model configuration analysis
-- `dr_hf.weights` - Model weight analysis (requires `[weights]`)
-- `dr_hf.checkpoints` - Checkpoint orchestration (requires `[weights]`)
-- `dr_hf.datasets` - Dataset loading and caching
-- `dr_hf.io` - HfApi upload/download operations
-- `dr_hf.location` - HFLocation Pydantic model
-- `dr_hf.paths` - Environment path management
-- `dr_hf.models` - All Pydantic data models
+- `dr_hf.pins` - dataset and model pins, commit SHA validation
+- `dr_hf.datasets` - pinned dataset reader
+- `dr_hf.subsets` - named subsets, derivations, registry
+- `dr_hf.hashing` - `content_hash`
+- `dr_hf.publishing` - model publishing with provenance
+- `dr_hf.branches` - checkpoint branch discovery and parsing
+- `dr_hf.io` - atomic dataset file commits
+- `dr_hf.location` - `HFLocation` Pydantic model
+- `dr_hf.models` - branch metadata and dataset commit models
 
 ## Public API
 
-All public functions and models are exported from the top-level `dr_hf` package:
-
-```python
-from dr_hf import (
-    # Functions
-    get_checkpoint_branches,
-    parse_branch_name,
-    analyze_model_config,
-    analyze_model_weights,
-    # ...
-
-    # Models
-    BranchInfo,
-    ConfigAnalysis,
-    WeightsAnalysis,
-    # ...
-)
-```
-
-See the [README](../README.md) for the complete list of exports.
+All public functions and models are exported from the top-level `dr_hf`
+package; see `dr_hf.__all__` and the [README](../README.md).

@@ -87,3 +87,90 @@ terms = [
   "revision",
   "HF location",
 ]
+
+[[contracts]]
+title = "Pins record full commit SHAs"
+statement = """
+DatasetPin, ModelPin, and ModelProvenance accept only full 40-character \
+lowercase hexadecimal commit SHAs. resolve_dataset_pin and \
+resolve_model_pin resolve a branch, tag, or SHA through the Hub info \
+endpoint and raise when the Hub returns no SHA."""
+rationale = """
+Branches and tags move. Downstream identities, subset versions, and \
+published provenance are only reproducible if they name immutable commits."""
+date = "2026-10-08"
+check = "uv run pytest -q tests/test_pins.py tests/test_publishing.py::test_provenance_requires_source_sha"
+terms = ["commit SHA", "dataset pin", "model pin", "model provenance"]
+
+[[contracts]]
+title = "Native ids are validated before rows are yielded"
+statement = """
+read_rows loads every requested split at the pinned commit and checks, \
+before yielding any row, that the native id field exists, that no value is \
+null, and that str forms are unique within each split. Violations raise \
+NativeIdError."""
+rationale = """
+Named subsets and downstream items are keyed by native id; a missing or \
+repeated id would silently merge or drop rows."""
+date = "2026-10-08"
+check = "uv run pytest -q tests/test_datasets.py"
+terms = ["native id", "source row", "origin split", "dataset pin"]
+
+[[contracts]]
+title = "Seeded derivations are reproducible from the derivation"
+statement = """
+Seeded samples and partitions use the documented rule in dr_hf.subsets: a \
+Fisher-Yates order driven only by random.Random(seed).random(), samples \
+taking its first size ids, partitions cutting it at floor(n * cumulative \
+exact-decimal fraction). Members are listed in parent order. Partitions \
+record every share so any part can be recomputed from its own derivation \
+and parent."""
+rationale = """
+Membership must be recomputable from recorded data alone and must not \
+depend on Python's unguaranteed shuffle or sample algorithms."""
+date = "2026-10-08"
+check = "uv run pytest -q tests/test_subsets.py -k 'pinned or disjoint'"
+terms = ["derivation", "named subset", "split key"]
+
+[[contracts]]
+title = "One registry key maps to one content hash"
+statement = """
+SubsetRegistry.register is a no-op when the (pin hash, split key) is \
+already stored with the same content hash and raises SubsetConflictError, \
+leaving the stored subset unchanged, when the content hash differs. \
+Concurrent writers to one pin hash are not coordinated."""
+rationale = """
+A split key is a durable name for a selection. Redefining it in place \
+would silently change every result computed against it."""
+date = "2026-10-08"
+check = "uv run pytest -q tests/test_subsets.py -k registry"
+terms = ["subset registry", "named subset", "split key", "content hash"]
+
+[[contracts]]
+title = "Model publication is one commit and tags never move"
+statement = """
+publish_model validates the local directory, card, and provenance before \
+any Hub call, then uploads every file, README.md, and provenance.json in \
+one create_commit on the target branch and returns the pin of that commit. \
+A tag already at that commit is accepted; a tag at another commit raises \
+TagConflictError instead of being moved."""
+rationale = """
+Weights, card, and provenance must describe the same revision, and tags \
+such as final-seed0 are consumed as stable names."""
+date = "2026-10-08"
+check = "uv run pytest -q tests/test_publishing.py"
+terms = ["model publication", "model provenance", "model pin"]
+
+[[contracts]]
+title = "Content hash is the single hashing seam"
+statement = """
+Pin hashes and named subset content hashes are computed only by \
+content_hash: sha256 over JSON with sorted keys, compact separators, \
+ensure_ascii false, and NaN rejected. Swapping in dr-serialize changes all \
+hashes; values computed before that swap are not durable identities."""
+rationale = """
+One seam keeps the later move to canonical hashing a single, deliberate \
+change rather than a hunt for ad hoc digests."""
+date = "2026-10-08"
+check = "uv run pytest -q tests/test_subsets.py -k 'content_hash or hashes_are_pinned'"
+terms = ["content hash", "dataset pin", "named subset"]

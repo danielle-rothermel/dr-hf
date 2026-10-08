@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import huggingface_hub
 import pytest
 from huggingface_hub import CommitOperationAdd, HfApi
 
@@ -18,20 +17,6 @@ from tests.hf_hub_http_mock import (
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-pytestmark = pytest.mark.usefixtures("hf_hub_version")
-
-
-@pytest.fixture
-def hf_hub_version() -> str:
-    version = huggingface_hub.__version__
-    if version.startswith("0.24."):
-        return version
-    if version.startswith("1.3."):
-        return version
-    pytest.skip(
-        "SDK commit contract tests run under locked Hub 1.3.x or floor 0.24.x"
-    )
 
 
 @pytest.fixture

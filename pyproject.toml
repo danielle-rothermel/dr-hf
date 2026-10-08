@@ -1,14 +1,14 @@
 [project]
 name = "dr-hf"
-version = "0.1.1"
-description = "HuggingFace utilities for repository management, dataset operations, and model analysis"
+version = "0.1.2"
+description = "Hugging Face Hub identity layer: dataset and model pins, named subsets, checkpoint revisions, and publishing"
 readme = "README.md"
 license = "MIT"
 authors = [
     { name = "Danielle Rothermel", email = "danielle.rothermel@gmail.com" }
 ]
 requires-python = ">=3.12"
-keywords = ["huggingface", "datasets", "model-analysis", "checkpoints", "machine-learning"]
+keywords = ["huggingface", "datasets", "reproducibility", "checkpoints", "machine-learning"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -22,24 +22,17 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "huggingface_hub>=0.24.0",
-    "datasets>=2.0.0",
-    "pandas>=2.1.1",
-    "pydantic>=2.0.0",
-    "python-dotenv>=1.0.0",
+    "datasets>=5.1.0,<6",
+    "huggingface_hub>=2.2.0,<3",
+    "pydantic>=2.14.0,<3",
 ]
-
-[project.optional-dependencies]
-weights = ["torch>=2.0.0", "safetensors>=0.4.0"]
-duckdb = ["duckdb>=0.9.0"]
-all = ["torch>=2.0.0", "safetensors>=0.4.0", "duckdb>=0.9.0"]
 
 [project.urls]
 Repository = "https://github.com/danielle-rothermel/dr-hf"
 Issues = "https://github.com/danielle-rothermel/dr-hf/issues"
 
 [build-system]
-requires = ["hatchling==1.31.0"]
+requires = ["hatchling==1.32.4"]
 build-backend = "hatchling.build"
 
 [tool.hatch.metadata]
@@ -53,21 +46,22 @@ packages = ["src/dr_hf"]
 
 [dependency-groups]
 dev = [
-    "duckdb>=0.9.0",
     "pdoc>=16.0.0",
-    "pre-commit>=4.6.0",
+    "pre-commit>=4.6.2",
     "pytest>=9.1.1",
-    "ruff>=0.15.18",
-    "safetensors>=0.4.0",
-    "torch>=2.0.0",
-    "ty>=0.0.51",
+    "ruff>=0.16.10",
+    "ty>=0.0.85",
 ]
 
 [tool.uv]
-required-version = "==0.11.25"
+required-version = ">=0.12.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not hub'"
+markers = [
+    "hub: network-backed conformance tests against the Hugging Face Hub (opt-in: pytest -m hub)",
+]
 
 [tool.ruff]
 include = ["src/**/*.py", "tests/**/*.py"]
@@ -126,16 +120,10 @@ ignore = ["PLR1711", "S101", "TRY003"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["PLR2004", "PLC0415", "S106", "ARG001"]
 "src/dr_hf/io.py" = ["PLC2701"]
-"src/dr_hf/__init__.py" = ["PLC0415"]
-"src/dr_hf/_torch.py" = ["PLC0415", "PLW0603"]
-"src/dr_hf/models.py" = ["TC003"]
-"src/dr_hf/configs.py" = ["BLE001", "TRY300"]
-"src/dr_hf/checkpoints.py" = ["BLE001", "FBT001", "FBT002", "TRY300"]
-"src/dr_hf/datasets.py" = ["FBT001", "FBT002"]
 "src/dr_hf/location.py" = ["FBT001", "FBT002"]
-"src/dr_hf/weights.py" = ["BLE001", "FBT001", "FBT002", "TRY300", "SIM118"]
 
 [tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 runtime-evaluated-decorators = ["dataclasses.dataclass"]
 
 [tool.ty.src]

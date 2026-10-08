@@ -72,3 +72,140 @@ pull-request details, and per-file resolve URLs at the applicable revision."""
 exported_symbols = ["DatasetCommitResult"]
 categories = ["dataset publishing", "hub"]
 part_of = ["hub commit"]
+
+[[terms]]
+name = "commit SHA"
+definition = """
+A full 40-character lowercase hexadecimal Hugging Face commit identifier. \
+Pins and provenance record commit SHAs, never branch or tag names, so the \
+identified content cannot move."""
+exported_symbols = ["CommitSha"]
+categories = ["hub", "pins"]
+
+[[terms]]
+name = "dataset pin"
+definition = """
+A Hub dataset repository, optional config, commit SHA, and native id field \
+that together fix one dataset version. resolve_dataset_pin turns a branch, \
+tag, or SHA into a pin; its pin hash scopes every named subset."""
+exported_symbols = ["DatasetPin", "resolve_dataset_pin"]
+categories = ["pins", "datasets"]
+
+[[terms]]
+name = "native id"
+definition = """
+The string identity of a dataset row within its origin split: the str form \
+of the pin's native id field, or "<origin split>:<row position>" when the \
+field is the ROW_INDEX sentinel. Native ids are unique within a split."""
+exported_symbols = ["ROW_INDEX", "NativeIdError"]
+categories = ["datasets"]
+part_of = ["source row"]
+
+[[terms]]
+name = "origin split"
+definition = """
+The split name the dataset itself provides for a row, such as train, \
+validation, or test."""
+categories = ["datasets", "subsets"]
+part_of = ["source row"]
+
+[[terms]]
+name = "source row"
+definition = """
+One dataset row read at a dataset pin, tagged with its origin split and \
+native id and carrying the row's fields unchanged."""
+exported_symbols = ["SourceRow", "read_rows", "split_sizes"]
+categories = ["datasets"]
+
+[[terms]]
+name = "split key"
+definition = """
+The (name, version) key of a named subset within one dataset pin, written \
+"name@version". Origin split keys use version "origin-<first 7 SHA \
+characters>" of the pinned commit."""
+exported_symbols = ["SplitKey", "origin_key"]
+categories = ["subsets"]
+part_of = ["named subset"]
+
+[[terms]]
+name = "derivation"
+definition = """
+The recorded rule that produced a named subset: origin split, seeded \
+sample, seeded partition, exclusion, union, or explicit ids, with exactly \
+the parents, seed, size, fraction, partition shares, or excluded ids that \
+rule needs."""
+exported_symbols = [
+  "Derivation",
+  "DerivationKind",
+  "PartitionShare",
+  "origin_subsets",
+  "seeded_sample",
+  "seeded_partition",
+  "exclude",
+  "union",
+  "explicit",
+]
+categories = ["subsets"]
+part_of = ["named subset"]
+
+[[terms]]
+name = "named subset"
+definition = """
+An ordered tuple of unique native ids within one dataset pin, identified \
+by pin hash and split key and carrying its derivation. Its content hash \
+covers pin hash, key, ordered ids, and derivation."""
+exported_symbols = ["NamedSubset"]
+categories = ["subsets"]
+
+[[terms]]
+name = "subset registry"
+definition = """
+A directory of JSON files, one per pin hash, storing named subsets. One \
+(pin hash, split key) maps to exactly one content hash."""
+exported_symbols = [
+  "SubsetRegistry",
+  "SubsetConflictError",
+  "SubsetNotFoundError",
+]
+categories = ["subsets"]
+
+[[terms]]
+name = "content hash"
+definition = """
+The sha256 hex digest of a payload encoded as sorted-key compact UTF-8 \
+JSON. It is the single hashing seam in dr-hf and will be replaced by \
+dr-serialize canonical hashing, which changes every hash."""
+exported_symbols = ["content_hash"]
+categories = ["pins", "subsets"]
+
+[[terms]]
+name = "model pin"
+definition = """
+A Hub model repository and commit SHA. resolve_model_pin turns a branch, \
+tag, or SHA into a pin, and publish_model returns the pin of the commit it \
+uploaded."""
+exported_symbols = ["ModelPin", "resolve_model_pin"]
+categories = ["pins", "models"]
+
+[[terms]]
+name = "model provenance"
+definition = """
+The source repository and commit SHA of a published model, the conversion \
+tool, a strict-JSON verification record, and optional notes, published as \
+the provenance.json sidecar."""
+exported_symbols = ["ModelProvenance", "PROVENANCE_FILENAME"]
+categories = ["models", "model publishing"]
+part_of = ["model publication"]
+
+[[terms]]
+name = "model publication"
+definition = """
+One Hub commit to a branch of a model repository holding a local model \
+directory, its model card as README.md, and its model provenance, followed \
+by tags at that commit."""
+exported_symbols = [
+  "publish_model",
+  "MODEL_CARD_FILENAME",
+  "TagConflictError",
+]
+categories = ["models", "model publishing", "hub"]

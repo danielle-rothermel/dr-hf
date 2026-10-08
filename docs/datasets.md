@@ -1,60 +1,46 @@
 # datasets
 
-Dataset loading, downloading, and caching using the HuggingFace datasets library.
+Reading every split of a pinned Hub dataset as rows tagged with origin split
+and native id.
+
+## Types
+
+```python
+class SourceRow(BaseModel, frozen=True):
+    pin: DatasetPin
+    origin_split: str
+    native_id: str
+    fields: Mapping[str, object]
+
+class NativeIdError(ValueError): ...
+```
 
 ## Functions
 
-### load_or_download_dataset
 ```python
-def load_or_download_dataset(
-    path: Path,
-    repo_id: str,
-    split: str = "train"
-) -> pd.DataFrame
-```
-Load a dataset from cache or download if not present. Downloads the dataset and saves to parquet format at the specified path. Returns a pandas DataFrame.
+def read_rows(
+    pin: DatasetPin, *, splits: Sequence[str] | None = None
+) -> Iterator[SourceRow]
 
-### download_dataset
-```python
-def download_dataset(
-    path: Path,
-    repo_id: str,
-    split: str = "train",
-    force_reload: bool = False
-) -> None
+def split_sizes(pin: DatasetPin) -> Mapping[str, int]
 ```
-Download a HuggingFace dataset and save to parquet format at the specified path. If `force_reload` is False and the file already exists, the download is skipped.
 
-### sanitize_repo_name
-```python
-def sanitize_repo_name(repo_id: str) -> str
-```
-Convert a repository ID to a filesystem-safe string. Replaces `/` with `--` and spaces with `-`.
+`read_rows` calls `datasets.load_dataset(repo_id, config,
+revision=pin.revision)` (one call per split when `splits` is given). Before
+yielding any row it checks every requested split: the native id field must be
+a column, values must be non-null, and their `str` forms must be unique
+within the split; otherwise it raises `NativeIdError`. `split_sizes` returns
+the row count of every provided split.
 
 ## Usage
 
 ```python
-from pathlib import Path
-from dr_hf import (
-    load_or_download_dataset,
-    download_dataset,
-    sanitize_repo_name,
+from dr_hf import read_rows, resolve_dataset_pin, split_sizes
+
+pin = resolve_dataset_pin(
+    "allenai/ai2_arc", config="ARC-Challenge", native_id_field="id"
 )
-
-# Load dataset (downloads if not cached)
-data_path = Path("./data/squad_train.parquet")
-df = load_or_download_dataset(data_path, repo_id="squad", split="train")
-print(f"Loaded {len(df)} examples")
-
-# Download to local parquet (only if not exists)
-download_path = Path("./data/squad_dev.parquet")
-download_dataset(download_path, repo_id="squad", split="validation")
-print(f"Saved to: {download_path}")
-
-# Force re-download
-download_dataset(download_path, repo_id="squad", split="validation", force_reload=True)
-
-# Sanitize repo names for filesystem
-safe_name = sanitize_repo_name("allenai/c4")
-print(safe_name)  # "allenai--c4"
+split_sizes(pin)  # {"train": 1119, "test": 1172, "validation": 299}
+for row in read_rows(pin, splits=["test"]):
+    print(row.native_id, row.fields["question"])
 ```

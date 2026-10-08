@@ -4,7 +4,11 @@
 [Terms](https://github.com/danielle-rothermel/dr-hf/blob/main/.defs/terms.toml) ·
 [Contracts](https://github.com/danielle-rothermel/dr-hf/blob/main/.defs/contracts.toml)
 
-HuggingFace utilities for repository management, dataset operations, and model analysis.
+Hugging Face Hub identity layer for dr-* research infrastructure: dataset
+and model pins fixed at commit SHAs, an all-split dataset reader, named
+subsets with recorded derivations, checkpoint branch parsing, and publishing
+of converted models with provenance. Loading models and running inference
+live in dr-providers.
 
 ## Installation
 
@@ -12,212 +16,91 @@ HuggingFace utilities for repository management, dataset operations, and model a
 uv add dr-hf
 ```
 
-For model weight analysis (requires PyTorch):
-```bash
-uv add dr-hf[weights]
-```
+Runtime dependencies: `datasets`, `huggingface_hub`, `pydantic`.
 
-For DuckDB query support:
-```bash
-uv add dr-hf[duckdb]
-```
-
-## Quick Start
+## Quick start
 
 ```python
 from dr_hf import (
-    get_checkpoint_branches,
-    parse_branch_name,
-    HFLocation,
-    download_dataset,
+    SubsetRegistry,
+    origin_subsets,
+    read_rows,
+    resolve_dataset_pin,
+    seeded_sample,
 )
 
-# Parse checkpoint branches from a repo
-branches = get_checkpoint_branches("org/model-checkpoints")
-for branch in branches:
-    info = parse_branch_name(branch)
-    print(f"Step {info.step}, Seed: {info.seed}")
+# Pin a dataset config at the commit "main" points to now.
+pin = resolve_dataset_pin(
+    "allenai/ai2_arc", config="ARC-Challenge", native_id_field="id"
+)
 
-# Create a location reference for HF datasets
-loc = HFLocation(org="allenai", repo_name="my-dataset")
-print(loc.repo_uri)  # hf://datasets/allenai/my-dataset
+# Read every split; each row carries its origin split and native id.
+rows = list(read_rows(pin))
 
-# Download a dataset to local parquet
-from pathlib import Path
-download_dataset(Path("./data/squad_train.parquet"), repo_id="squad", split="train")
+# Origin subsets are keyed (split, "origin-<sha7>"); derive more from them.
+origins = {s.key.name: s for s in origin_subsets(pin, rows)}
+dev = seeded_sample(origins["test"], name="dev", version="v1", size=100, seed=0)
+
+registry = SubsetRegistry("subsets/")
+registry.register(dev)  # same key + different content -> SubsetConflictError
 ```
 
-## Module Overview
+## Surface
 
-| Module | Purpose | Key Exports |
+| Module | Purpose | Key exports |
 |--------|---------|-------------|
-| **branches** | Branch discovery & parsing | `get_checkpoint_branches`, `parse_branch_name`, `create_branch_metadata` |
-| **configs** | Model config analysis | `download_config_file`, `analyze_model_config`, `estimate_parameter_count` |
-| **weights** | Model weight analysis | `analyze_model_weights`, `calculate_weight_statistics` ⚡ |
-| **checkpoints** | Checkpoint orchestration | `analyze_complete_checkpoint`, `process_all_checkpoints` ⚡ |
-| **datasets** | Dataset loading & caching | `load_or_download_dataset`, `download_dataset` |
-| **io** | HfApi upload/download | `commit_dataset_files_to_hf`, `cached_download_tables_from_hf` |
-| **location** | HF resource URIs | `HFLocation`, `HFRepoID`, `HFResource` |
-| **paths** | Environment paths | `get_data_dir`, `get_repo_dir` |
-| **models** | Pydantic data models | `BranchInfo`, `ConfigAnalysis`, `WeightsAnalysis`, ... |
+| **pins** | Hub repos fixed at full commit SHAs | `DatasetPin`, `ModelPin`, `ROW_INDEX`, `CommitSha`, `resolve_dataset_pin`, `resolve_model_pin` |
+| **datasets** | All-split reader | `SourceRow`, `read_rows`, `split_sizes`, `NativeIdError` |
+| **subsets** | Named subsets and registry | `SplitKey`, `Derivation`, `DerivationKind`, `PartitionShare`, `NamedSubset`, `origin_key`, `origin_subsets`, `seeded_sample`, `seeded_partition`, `exclude`, `union`, `explicit`, `SubsetRegistry`, `SubsetConflictError`, `SubsetNotFoundError` |
+| **hashing** | Single hashing seam | `content_hash` |
+| **publishing** | Model upload with card and provenance | `ModelProvenance`, `publish_model`, `TagConflictError`, `MODEL_CARD_FILENAME`, `PROVENANCE_FILENAME` |
+| **branches** | Checkpoint branch discovery and `stepN-seed-*` parsing | `get_checkpoint_branches`, `parse_branch_name`, `create_branch_metadata`, ... |
+| **io** | Atomic multi-file dataset commits | `commit_dataset_files_to_hf` |
+| **location** | Dataset repository references | `HFLocation`, `HFRepoID`, `HFResource` |
+| **models** | Branch metadata and commit models | `BranchInfo`, `BranchMetadata`, `DatasetFileCommitEntry`, `DatasetCommitResult`, ... |
 
-⚡ = Requires `[weights]` optional dependency
+Key rules (see [contracts](.defs/contracts.toml)):
+
+- Pins and provenance accept only full 40-character commit SHAs.
+- `read_rows` validates that native ids exist, are non-null, and are unique
+  within each split before yielding any row.
+- Seeded samples and partitions follow a documented rule driven only by
+  `random.Random(seed).random()`, so membership is reproducible from the
+  derivation and parent alone.
+- The subset registry maps one `(pin_hash, split key)` to one content hash.
+- `publish_model` uploads weights, `README.md`, and `provenance.json` in one
+  commit and never moves an existing tag.
+- `content_hash` is the only hash function; it will be replaced by
+  dr-serialize canonical hashing, which changes every hash.
+
+## Publishing a converted model
+
+```python
+from dr_hf import ModelProvenance, publish_model
+
+pin = publish_model(
+    "converted/step1000-seed0",
+    repo_id="drotherm/DataDecide-dolma1_7-150M",
+    branch="step1000-seed0",
+    tags=(),
+    card_markdown=card_text,
+    provenance=ModelProvenance(
+        source_repo_id="allenai/DataDecide-dolma1_7-150M",
+        source_revision=source_sha,
+        conversion_tool="datadec.models.convert 0.1.0",
+        verification={"max_abs_logit_diff": 2.1e-5, "batch": "8 x 256"},
+    ),
+    private=True,
+    commit_message="Add step1000 seed 0",
+)
+```
 
 ## Documentation
 
 - [Definitions site](https://danielle-rothermel.github.io/dr-hf/) — shared vocabulary and binding contracts ([terms](.defs/terms.toml), [contracts](.defs/contracts.toml); agents read the TOML directly)
-- [Full API Reference](docs/api.md)
-- Module guides: [branches](docs/branches.md) | [configs](docs/configs.md) | [weights](docs/weights.md) | [checkpoints](docs/checkpoints.md) | [datasets](docs/datasets.md) | [io](docs/io.md) | [location](docs/location.md) | [paths](docs/paths.md)
-- [Pydantic Models](docs/models.md)
-- [Recipes & Patterns](docs/recipes.md)
-
-### Auto-generated API Docs
-
-```bash
-# Serve interactive docs locally
-uv run pdoc dr_hf
-
-# Generate static HTML
-uv run pdoc dr_hf -o docs/api_html
-```
-
-## Quick Reference
-
-### Branch Operations
-```python
-from dr_hf import (
-    get_all_repo_branches,    # list all branches in repo
-    get_checkpoint_branches,  # filter to stepN-seed-* branches
-    is_checkpoint_branch,     # check if branch matches pattern
-    parse_branch_name,        # extract step/seed -> BranchInfo
-    extract_step_from_branch, # get step number
-    extract_seed_from_branch, # get seed string
-    sort_branches_by_step,    # sort branches by step
-    group_branches_by_seed,   # group branches by seed
-    create_branch_metadata,   # full repo metadata -> BranchMetadata
-)
-```
-
-### Config Analysis
-```python
-from dr_hf import (
-    download_config_file,           # download config.json
-    analyze_model_config,           # parse config -> ConfigAnalysis
-    extract_model_architecture_info,# extract architecture -> ArchitectureInfo
-    estimate_parameter_count,       # estimate params -> ParameterEstimate
-)
-```
-
-### Weight Analysis (requires `[weights]`)
-```python
-from dr_hf import (
-    discover_model_weight_files,  # find weight files in repo
-    download_model_weights,       # download specific weights
-    calculate_weight_statistics,  # analyze weights -> WeightFileStatistics
-    calculate_tensor_stats,       # per-tensor stats -> TensorStats
-    analyze_layer_structure,      # categorize layers -> LayerAnalysis
-    calculate_global_weight_stats,# global stats -> GlobalWeightStats
-    analyze_model_weights,        # full workflow -> WeightsAnalysis
-)
-```
-
-### Checkpoint Analysis (requires `[weights]`)
-```python
-from dr_hf import (
-    download_optimizer_checkpoint, # download optim.pt
-    analyze_optimizer_checkpoint,  # parse optimizer -> OptimizerAnalysis
-    analyze_complete_checkpoint,   # full analysis -> CheckpointAnalysis
-    process_single_checkpoint,     # single branch analysis
-    process_all_checkpoints,       # parallel multi-branch
-    create_comprehensive_summary,  # DataFrame summary
-    create_learning_rate_summary,  # LR-focused summary
-    save_checkpoint_analysis,      # save to JSON
-    save_all_analyses_outputs,     # save CSVs + JSON
-)
-```
-
-### Dataset Operations
-```python
-from dr_hf import (
-    load_or_download_dataset, # load from cache or download
-    download_dataset,         # download HF dataset to parquet
-    sanitize_repo_name,       # convert repo ID to safe filename
-)
-```
-
-### HfApi I/O
-```python
-from dr_hf import (
-    commit_dataset_files_to_hf,   # atomic multi-file dataset commit
-    DatasetFileCommitEntry,       # local path + repo path pair
-    cached_download_tables_from_hf,# download parquet with caching
-    get_tables_from_cache,        # read cached parquet files
-    read_local_parquet_paths,     # list local parquet files
-    query_hf_with_duckdb,         # query HF with DuckDB (requires [duckdb])
-)
-```
-
-### Location Management
-```python
-from dr_hf import (
-    HFLocation,   # Pydantic model for HF dataset locations
-    HFRepoID,     # Type alias: "org/repo-name"
-    HFResource,   # Type alias: "hf://datasets/org/repo"
-)
-
-loc = HFLocation(org="allenai", repo_name="c4")
-loc.repo_id        # "allenai/c4"
-loc.repo_uri       # "hf://datasets/allenai/c4"
-loc.repo_link      # HttpUrl to HF page
-
-# Parse from URI
-loc = HFLocation.from_uri("hf://datasets/squad/squad")
-```
-
-### Environment Paths
-```python
-from dr_hf import (
-    get_data_dir,  # get DATA_DIR from env
-    get_repo_dir,  # get REPO_DIR from env
-)
-```
-
-### Pydantic Models
-```python
-from dr_hf import (
-    # Branch models
-    BranchInfo,           # parsed branch (step, seed, valid)
-    SeedBranchInfo,       # step + branch name
-    SeedConfiguration,    # seed group metadata
-    BranchMetadata,       # full repo branch info
-
-    # Config models
-    ConfigAnalysis,       # config.json analysis result
-    ArchitectureInfo,     # model architecture details
-    ParameterEstimate,    # estimated parameter counts
-
-    # Weight models
-    WeightsAnalysis,      # full weight analysis result
-    WeightsSummary,       # aggregated weight stats
-    WeightFileStatistics, # per-file statistics
-    TensorInfo,           # per-tensor metadata
-    TensorStats,          # tensor statistics
-    LayerAnalysis,        # layer categorization
-    LayerCategorization,  # layers by type
-    LayerCounts,          # layer count summary
-    GlobalWeightStats,    # global weight statistics
-    ParameterStats,       # parameter counts
-
-    # Checkpoint models
-    CheckpointAnalysis,   # full checkpoint analysis
-    CheckpointComponents, # optimizer + config + weights
-    CheckpointSummaryRow, # DataFrame row model
-    OptimizerAnalysis,    # optimizer state analysis
-    OptimizerComponentInfo,# optimizer component details
-    LearningRateInfo,     # learning rate extraction
-    ParamGroupInfo,       # param group details
-)
-```
+- Module guides: [pins](docs/pins.md) | [datasets](docs/datasets.md) | [subsets](docs/subsets.md) | [publishing](docs/publishing.md) | [branches](docs/branches.md) | [io](docs/io.md) | [location](docs/location.md) | [models](docs/models.md)
+- [API reference](docs/api.md) (`uv run pdoc dr_hf`)
+- [Changelog](CHANGELOG.md)
 
 ## Development
 
@@ -228,8 +111,13 @@ uv sync --locked
 uv run pre-commit install
 ```
 
-The hook runs `scripts/pre-check.sh` for Ruff formatting, Ruff lint, and type
-checking, followed by the test suite.
+The hook runs `scripts/pre-check.sh` (TOML lint of `.defs`, Ruff format,
+Ruff lint, ty) followed by the test suite. Hub-backed conformance tests are
+opt-in:
+
+```bash
+uv run pytest -m hub
+```
 
 ## License
 
