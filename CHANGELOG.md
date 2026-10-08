@@ -26,7 +26,7 @@
 
 ### Changed
 
-- Dependencies: `datasets>=5.1.0,<6`, `huggingface_hub>=2.2.0,<3`,
+- Dependencies: `datasets>=5.1.0,<6`, `huggingface_hub>=1.31.0,<3`,
   `pydantic>=2.14.0,<3`; dev tools refreshed; `uv.lock` regenerated.
 - `[tool.uv] required-version` is now `>=0.12.0`.
 - All exports are eager; the lazy `__getattr__` loader is gone.

@@ -23,7 +23,7 @@ classifiers = [
 ]
 dependencies = [
     "datasets>=5.1.0,<6",
-    "huggingface_hub>=2.2.0,<3",
+    "huggingface_hub>=1.31.0,<3",
     "pydantic>=2.14.0,<3",
 ]
 
