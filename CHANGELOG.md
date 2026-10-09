@@ -13,8 +13,9 @@
   `PartitionShare`, `NamedSubset`, origin keys and subsets, seeded sample,
   seeded partition, exclusion, union, explicit ids, and the JSON-file
   `SubsetRegistry` with its one-key-one-content-hash rule.
-- `dr_hf.hashing.content_hash`: the single hashing seam, to be replaced by
-  dr-serialize.
+- `dr_hf.identity`: `identity_hash` and the schema names
+  `dr_hf.dataset_pin` and `dr_hf.named_subset` (version 1); pin hashes and
+  subset content hashes are dr-serialize identity hashes.
 - `dr_hf.publishing`: `ModelProvenance` and `publish_model`, which uploads a
   model directory with its card and `provenance.json` in one commit and
   creates tags without moving existing ones (`TagConflictError`).
@@ -26,8 +27,8 @@
 
 ### Changed
 
-- Dependencies: `datasets>=5.1.0,<6`, `huggingface_hub>=1.31.0,<3`,
-  `pydantic>=2.14.0,<3`; dev tools refreshed; `uv.lock` regenerated.
+- Dependencies: `datasets>=5.1.0,<6`, `dr-serialize>=0.1.2,<0.2`,
+  `huggingface_hub>=1.31.0,<3`, `pydantic>=2.14.0,<3`; dev tools refreshed; `uv.lock` regenerated.
 - `[tool.uv] required-version` is now `>=0.12.0`.
 - All exports are eager; the lazy `__getattr__` loader is gone.
 

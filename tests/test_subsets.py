@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from typing import TYPE_CHECKING
 
 import pytest
+from dr_serialize import build_identity_document, identity_document_hash
 from pydantic import ValidationError
 
 from dr_hf import (
+    DATASET_PIN_SCHEMA,
+    IDENTITY_SCHEMA_VERSION,
+    NAMED_SUBSET_SCHEMA,
     DatasetPin,
     Derivation,
     DerivationKind,
@@ -18,9 +21,9 @@ from dr_hf import (
     SubsetConflictError,
     SubsetNotFoundError,
     SubsetRegistry,
-    content_hash,
     exclude,
     explicit,
+    identity_hash,
     origin_key,
     origin_subsets,
     seeded_partition,
@@ -50,18 +53,28 @@ def parent(pin: DatasetPin) -> NamedSubset:
 # ------------------------------------------------------- persisted literals
 
 
-def test_content_hash_encoding_is_pinned() -> None:
+def test_identity_schema_literals_are_pinned() -> None:
+    assert DATASET_PIN_SCHEMA == "dr_hf.dataset_pin"
+    assert NAMED_SUBSET_SCHEMA == "dr_hf.named_subset"
+    assert IDENTITY_SCHEMA_VERSION == 1
+
+
+def test_identity_hash_is_the_dr_serialize_document_hash() -> None:
     payload = {"b": [1, "é"], "a": None}
-    expected = hashlib.sha256('{"a":null,"b":[1,"é"]}'.encode()).hexdigest()
-    assert content_hash(payload) == expected
-    assert expected == (
-        "f8f17faab95c024891d173fa43442b0e52007736a1f36715ac721ab22deeefc5"
+    document = build_identity_document(
+        schema=NAMED_SUBSET_SCHEMA, schema_version=1, payload=payload
+    )
+    assert identity_hash(NAMED_SUBSET_SCHEMA, payload) == str(
+        identity_document_hash(document)
+    )
+    assert identity_hash(NAMED_SUBSET_SCHEMA, payload) != identity_hash(
+        DATASET_PIN_SCHEMA, payload
     )
 
 
-def test_content_hash_rejects_nan() -> None:
-    with pytest.raises(ValueError, match="JSON compliant"):
-        content_hash({"x": float("nan")})
+def test_identity_hash_rejects_non_finite_floats() -> None:
+    with pytest.raises(Exception, match=r"(?i)nan|finite|canonical"):
+        identity_hash(NAMED_SUBSET_SCHEMA, {"x": float("nan")})
 
 
 def test_derivation_kind_literals_are_pinned() -> None:
@@ -79,10 +92,10 @@ def test_pin_and_subset_hashes_are_pinned(
     pin: DatasetPin, parent: NamedSubset
 ) -> None:
     assert pin.pin_hash == (
-        "3d64868b913b8c67f0b1457373ae422436d9a6cfff586b591999dd506317caec"
+        "51869d0d255fc57edf84e9907de6b9c38ae41fba9df437d35f8c5a3748d7d0a9"
     )
     assert parent.content_hash == (
-        "c911511162ce90e2c32fbb9cae31b97f1cdd33f3ed56bb690abc6728f562b120"
+        "8aaf8ff3f4d4f697acbe1fddb9b91d04a446743d320ce3a205992edf67f832fa"
     )
 
 

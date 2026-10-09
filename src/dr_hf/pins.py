@@ -8,7 +8,7 @@ from typing import Annotated, Final
 from huggingface_hub import HfApi
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from .hashing import content_hash
+from .identity import DATASET_PIN_SCHEMA, identity_hash
 
 __all__ = [
     "ROW_INDEX",
@@ -53,8 +53,8 @@ class DatasetPin(BaseModel):
 
     @property
     def pin_hash(self) -> str:
-        """Content hash of the pin; named subsets are scoped by it."""
-        return content_hash(self.model_dump(mode="json"))
+        """dr-serialize identity hash of the pin; subsets are scoped by it."""
+        return identity_hash(DATASET_PIN_SCHEMA, self.model_dump(mode="json"))
 
 
 class ModelPin(BaseModel):

@@ -52,7 +52,7 @@ registry.register(dev)  # same key + different content -> SubsetConflictError
 | **pins** | Hub repos fixed at full commit SHAs | `DatasetPin`, `ModelPin`, `ROW_INDEX`, `CommitSha`, `resolve_dataset_pin`, `resolve_model_pin` |
 | **datasets** | All-split reader | `SourceRow`, `read_rows`, `split_sizes`, `NativeIdError` |
 | **subsets** | Named subsets and registry | `SplitKey`, `Derivation`, `DerivationKind`, `PartitionShare`, `NamedSubset`, `origin_key`, `origin_subsets`, `seeded_sample`, `seeded_partition`, `exclude`, `union`, `explicit`, `SubsetRegistry`, `SubsetConflictError`, `SubsetNotFoundError` |
-| **hashing** | Single hashing seam | `content_hash` |
+| **identity** | Identity hashes through dr-serialize | `identity_hash`, `DATASET_PIN_SCHEMA`, `NAMED_SUBSET_SCHEMA`, `IDENTITY_SCHEMA_VERSION` |
 | **publishing** | Model upload with card and provenance | `ModelProvenance`, `publish_model`, `TagConflictError`, `MODEL_CARD_FILENAME`, `PROVENANCE_FILENAME` |
 | **branches** | Checkpoint branch discovery and `stepN-seed-*` parsing | `get_checkpoint_branches`, `parse_branch_name`, `create_branch_metadata`, ... |
 | **io** | Atomic multi-file dataset commits | `commit_dataset_files_to_hf` |
@@ -70,8 +70,9 @@ Key rules (see [contracts](.defs/contracts.toml)):
 - The subset registry maps one `(pin_hash, split key)` to one content hash.
 - `publish_model` uploads weights, `README.md`, and `provenance.json` in one
   commit and never moves an existing tag.
-- `content_hash` is the only hash function; it will be replaced by
-  dr-serialize canonical hashing, which changes every hash.
+- Every hash is a dr-serialize identity hash of an identity document with a
+  dr-hf-owned schema name (`dr_hf.dataset_pin`, `dr_hf.named_subset`) and
+  schema version 1; dr-hf computes no digests of its own.
 
 ## Publishing a converted model
 

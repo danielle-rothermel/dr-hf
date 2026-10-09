@@ -170,12 +170,18 @@ exported_symbols = [
 categories = ["subsets"]
 
 [[terms]]
-name = "content hash"
+name = "identity hash"
 definition = """
-The sha256 hex digest of a payload encoded as sorted-key compact UTF-8 \
-JSON. It is the single hashing seam in dr-hf and will be replaced by \
-dr-serialize canonical hashing, which changes every hash."""
-exported_symbols = ["content_hash"]
+The dr-serialize identity hash of an identity document whose schema name \
+and payload shape dr-hf owns: dr_hf.dataset_pin for pins and \
+dr_hf.named_subset for named subsets, both at schema version 1. dr-hf \
+computes no digests of its own."""
+exported_symbols = [
+  "identity_hash",
+  "DATASET_PIN_SCHEMA",
+  "NAMED_SUBSET_SCHEMA",
+  "IDENTITY_SCHEMA_VERSION",
+]
 categories = ["pins", "subsets"]
 
 [[terms]]

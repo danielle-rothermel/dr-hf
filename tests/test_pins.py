@@ -4,10 +4,11 @@ import pytest
 from pydantic import ValidationError
 
 from dr_hf import (
+    DATASET_PIN_SCHEMA,
     ROW_INDEX,
     DatasetPin,
     ModelPin,
-    content_hash,
+    identity_hash,
     resolve_dataset_pin,
     resolve_model_pin,
 )
@@ -52,7 +53,9 @@ def test_dataset_pin_is_frozen_and_hash_covers_every_field() -> None:
     pin = _pin()
     with pytest.raises(ValidationError):
         pin.revision = "0" * 40  # ty: ignore[invalid-assignment]
-    assert pin.pin_hash == content_hash(pin.model_dump(mode="json"))
+    assert pin.pin_hash == identity_hash(
+        DATASET_PIN_SCHEMA, pin.model_dump(mode="json")
+    )
     variants = [
         _pin(config=None),
         _pin(revision="0" * 40),

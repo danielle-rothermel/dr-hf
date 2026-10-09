@@ -54,6 +54,7 @@ jobs:
           uv venv .min-venv --python 3.12
           uv pip install --python .min-venv/bin/python \
             "datasets==5.1.0" \
+            "dr-serialize==0.1.2" \
             "huggingface-hub==1.31.0" \
             "pydantic==2.14.0" \
             "pytest>=9.1.1"

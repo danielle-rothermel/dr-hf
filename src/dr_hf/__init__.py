@@ -17,7 +17,12 @@ from .branches import (
     sort_branches_by_step,
 )
 from .datasets import NativeIdError, SourceRow, read_rows, split_sizes
-from .hashing import content_hash
+from .identity import (
+    DATASET_PIN_SCHEMA,
+    IDENTITY_SCHEMA_VERSION,
+    NAMED_SUBSET_SCHEMA,
+    identity_hash,
+)
 from .io import commit_dataset_files_to_hf
 from .location import HFLocation, HFRepoID, HFResource
 from .models import (
@@ -62,7 +67,10 @@ from .subsets import (
 )
 
 __all__ = [
+    "DATASET_PIN_SCHEMA",
+    "IDENTITY_SCHEMA_VERSION",
     "MODEL_CARD_FILENAME",
+    "NAMED_SUBSET_SCHEMA",
     "PROVENANCE_FILENAME",
     "ROW_INDEX",
     "BranchInfo",
@@ -91,7 +99,6 @@ __all__ = [
     "TagConflictError",
     "__version__",
     "commit_dataset_files_to_hf",
-    "content_hash",
     "create_branch_metadata",
     "exclude",
     "explicit",
@@ -101,6 +108,7 @@ __all__ = [
     "get_checkpoint_branches",
     "get_step_range_for_seed",
     "group_branches_by_seed",
+    "identity_hash",
     "is_checkpoint_branch",
     "origin_key",
     "origin_subsets",

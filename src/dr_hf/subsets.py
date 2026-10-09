@@ -42,7 +42,7 @@ from pydantic import (
     model_validator,
 )
 
-from .hashing import content_hash
+from .identity import NAMED_SUBSET_SCHEMA, identity_hash
 
 if TYPE_CHECKING:
     import os
@@ -238,8 +238,8 @@ class NamedSubset(BaseModel):
 
     @property
     def content_hash(self) -> str:
-        """Hash of pin hash, key, ordered ids, and derivation."""
-        return content_hash(self.model_dump(mode="json"))
+        """dr-serialize identity hash of pin hash, key, ids, and derivation."""
+        return identity_hash(NAMED_SUBSET_SCHEMA, self.model_dump(mode="json"))
 
 
 def origin_key(split: str, pin: DatasetPin) -> SplitKey:

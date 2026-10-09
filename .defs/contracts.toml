@@ -144,7 +144,7 @@ A split key is a durable name for a selection. Redefining it in place \
 would silently change every result computed against it."""
 date = "2026-10-08"
 check = "uv run pytest -q tests/test_subsets.py -k registry"
-terms = ["subset registry", "named subset", "split key", "content hash"]
+terms = ["subset registry", "named subset", "split key", "identity hash"]
 
 [[contracts]]
 title = "Model publication is one commit and tags never move"
@@ -162,15 +162,17 @@ check = "uv run pytest -q tests/test_publishing.py"
 terms = ["model publication", "model provenance", "model pin"]
 
 [[contracts]]
-title = "Content hash is the single hashing seam"
+title = "Every hash is a dr-serialize identity hash"
 statement = """
-Pin hashes and named subset content hashes are computed only by \
-content_hash: sha256 over JSON with sorted keys, compact separators, \
-ensure_ascii false, and NaN rejected. Swapping in dr-serialize changes all \
-hashes; values computed before that swap are not durable identities."""
+Pin hashes and named subset content hashes are dr-serialize identity \
+hashes of identity documents with dr-hf-owned schema names \
+(dr_hf.dataset_pin, dr_hf.named_subset) at schema version 1 over the \
+value's JSON payload. dr-hf computes no digests of its own; the schema \
+names and the pinned hash values are golden-tested."""
 rationale = """
-One seam keeps the later move to canonical hashing a single, deliberate \
-change rather than a hunt for ad hoc digests."""
+One canonical-bytes implementation across the ecosystem keeps identities \
+comparable across packages, and a named schema makes a payload change a \
+deliberate, versioned event rather than a silent re-identification."""
 date = "2026-10-08"
-check = "uv run pytest -q tests/test_subsets.py -k 'content_hash or hashes_are_pinned'"
-terms = ["content hash", "dataset pin", "named subset"]
+check = "uv run pytest -q tests/test_subsets.py -k 'identity or hashes_are_pinned'"
+terms = ["identity hash", "dataset pin", "named subset"]
