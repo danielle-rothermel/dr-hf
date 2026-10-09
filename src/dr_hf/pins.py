@@ -18,7 +18,6 @@ __all__ = [
 ]
 
 ROW_INDEX: Final = "__row__"
-"""Native id sentinel: use ``f"{origin_split}:{row_position}"`` as the id."""
 
 _COMMIT_SHA_RE = re.compile(r"[0-9a-f]{40}")
 
@@ -34,7 +33,6 @@ def _validate_commit_sha(value: str) -> str:
 
 
 CommitSha = Annotated[str, AfterValidator(_validate_commit_sha)]
-"""A full 40-character lowercase hexadecimal Hub commit SHA."""
 
 RepoId = Annotated[str, Field(min_length=1, pattern=r"^\S+$")]
 
