@@ -146,7 +146,7 @@ def _local_files(root: Path) -> list[Path]:
 def _create_tags(api: HfApi, pin: ModelPin, tags: Sequence[str]) -> None:
     refs = api.list_repo_refs(pin.repo_id, repo_type=_MODEL_REPO_TYPE)
     existing = {ref.name: ref.target_commit for ref in refs.tags}
-    for tag in tags:
+    for tag in dict.fromkeys(tags):
         target = existing.get(tag)
         if target == pin.revision:
             continue

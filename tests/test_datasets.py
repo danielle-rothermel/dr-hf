@@ -58,7 +58,7 @@ def test_read_rows_tags_split_and_coerces_ids(
         monkeypatch,
         {
             "train": {"id": [3, 1], "q": ["a", "b"]},
-            "test": {"id": [3, 2], "q": ["c", "d"]},
+            "test": {"id": [4, 2], "q": ["c", "d"]},
         },
     )
     rows = list(read_rows(_pin()))
@@ -66,7 +66,7 @@ def test_read_rows_tags_split_and_coerces_ids(
     assert [(r.origin_split, r.native_id) for r in rows] == [
         ("train", "3"),
         ("train", "1"),
-        ("test", "3"),
+        ("test", "4"),
         ("test", "2"),
     ]
     assert rows[0].fields == {"id": 3, "q": "a"}
@@ -92,9 +92,35 @@ def test_read_rows_selected_splits_load_each_split(
     )
     rows = list(read_rows(_pin(), splits=["test"]))
     assert [(r.origin_split, r.native_id) for r in rows] == [("test", "b")]
-    assert calls == [
-        (("org/data", "cfg"), {"split": "test", "revision": SHA}),
-    ]
+    assert calls == [(("org/data", "cfg"), {"revision": SHA})]
+
+
+def test_read_rows_rejects_unknown_split(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install(monkeypatch, {"train": {"id": ["a"]}})
+    with pytest.raises(ValueError, match="unknown splits"):
+        list(read_rows(_pin(), splits=["test"]))
+
+
+def test_duplicate_id_across_splits_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install(
+        monkeypatch,
+        {"train": {"id": ["a", "3"]}, "test": {"id": ["3", "b"]}},
+    )
+    rows = read_rows(_pin(), splits=["test"])
+    with pytest.raises(NativeIdError, match="'3'.*splits 'train' and 'test'"):
+        next(rows)
+
+
+def test_row_index_ids_are_unique_across_splits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install(monkeypatch, {"train": {"q": ["a"]}, "test": {"q": ["b"]}})
+    rows = list(read_rows(_pin(ROW_INDEX)))
+    assert [r.native_id for r in rows] == ["train:0", "test:0"]
 
 
 def test_read_rows_rejects_repeated_split_names(

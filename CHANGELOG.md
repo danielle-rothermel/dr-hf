@@ -8,7 +8,9 @@
   (`CommitSha`), `ROW_INDEX` sentinel, `resolve_dataset_pin`, and
   `resolve_model_pin`.
 - `dr_hf.datasets`: `SourceRow`, `read_rows` over every split at the pinned
-  commit with native id validation (`NativeIdError`), and `split_sizes`.
+  commit with native id validation (`NativeIdError`; ids must be unique
+  across all splits, so cross-split unions never merge distinct rows), and
+  `split_sizes`.
 - `dr_hf.subsets`: `SplitKey`, `DerivationKind`, `Derivation`,
   `PartitionShare`, `NamedSubset`, origin keys and subsets, seeded sample,
   seeded partition, exclusion, union, explicit ids, and the JSON-file

@@ -107,7 +107,10 @@ title = "Native ids are validated before rows are yielded"
 statement = """
 read_rows loads every requested split at the pinned commit and checks, \
 before yielding any row, that the native id field exists, that no value is \
-null, and that str forms are unique within each split. Violations raise \
+null, and that str forms are unique within each split and across splits. \
+read_rows always loads every split so the cross-split check holds even when \
+a subset of splits is requested; datasets whose id field repeats across \
+splits must use ROW_INDEX. Violations raise \
 NativeIdError."""
 rationale = """
 Named subsets and downstream items are keyed by native id; a missing or \

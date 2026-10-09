@@ -96,7 +96,8 @@ name = "native id"
 definition = """
 The string identity of a dataset row within its origin split: the str form \
 of the pin's native id field, or "<origin split>:<row position>" when the \
-field is the ROW_INDEX sentinel. Native ids are unique within a split."""
+field is the ROW_INDEX sentinel. Native ids are unique across every split \
+of the pinned dataset."""
 exported_symbols = ["ROW_INDEX", "NativeIdError"]
 categories = ["datasets"]
 part_of = ["source row"]

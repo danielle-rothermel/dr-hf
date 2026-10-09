@@ -191,3 +191,12 @@ def test_provenance_requires_source_sha() -> None:
             conversion_tool="tool",
             verification={},
         )
+
+
+def test_publish_creates_each_requested_tag_once(
+    api: MagicMock, model_dir: Path, provenance: ModelProvenance
+) -> None:
+    _publish(model_dir, provenance, tags=("final-seed0", "final-seed0"))
+    api.create_tag.assert_called_once_with(
+        REPO_ID, tag="final-seed0", revision=NEW_SHA, repo_type="model"
+    )

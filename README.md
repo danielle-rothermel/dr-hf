@@ -63,7 +63,8 @@ Key rules (see [contracts](.defs/contracts.toml)):
 
 - Pins and provenance accept only full 40-character commit SHAs.
 - `read_rows` validates that native ids exist, are non-null, and are unique
-  within each split before yielding any row.
+  across every split of the pinned dataset before yielding any row; datasets
+  whose id field repeats across splits use `ROW_INDEX`.
 - Seeded samples and partitions follow a documented rule driven only by
   `random.Random(seed).random()`, so membership is reproducible from the
   derivation and parent alone.
