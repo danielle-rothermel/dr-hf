@@ -111,7 +111,7 @@ def test_duplicate_id_across_splits_raises(
         {"train": {"id": ["a", "3"]}, "test": {"id": ["3", "b"]}},
     )
     rows = read_rows(_pin(), splits=["test"])
-    with pytest.raises(NativeIdError, match="'3'.*splits 'train' and 'test'"):
+    with pytest.raises(NativeIdError, match=r"'3'.*splits 'train' and 'test'"):
         next(rows)
 
 
