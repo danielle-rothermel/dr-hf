@@ -8,7 +8,7 @@ from huggingface_hub import get_session
 from huggingface_hub.utils.sha import git_hash
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
 REPO_ID = "test-org/test-dataset"
 PARENT_OID = "91c54ad1727ee830252e457677f467be0bfd8a57"
@@ -49,7 +49,7 @@ def stub_hf_hub_http(
     upload_case: Literal["changed", "unchanged"],
     parent_oid: str = PARENT_OID,
     new_commit_oid: str = NEW_COMMIT_OID,
-) -> Iterator[list[tuple[str, str]]]:
+) -> Generator[list[tuple[str, str]]]:
     if upload_case == "unchanged":
         remote_oid: str | None = git_hash(file_content)
     else:
@@ -77,6 +77,25 @@ def stub_hf_hub_http(
             response.json.return_value = commit_response(oid=new_commit_oid)
         else:
             response.json.return_value = revision_info(sha=parent_oid)
+        return response
+
+    with patch.object(get_session(), "request", side_effect=fake_request):
+        yield calls
+
+
+@contextmanager
+def stub_revision_info(
+    *, repo_id: str, sha: str | None
+) -> Generator[list[tuple[str, str]]]:
+    calls: list[tuple[str, str]] = []
+
+    def fake_request(method: str, url: str, **kwargs: object) -> MagicMock:
+        calls.append((method.upper(), str(url)))
+        response = MagicMock()
+        response.status_code = 200
+        response.headers = {}
+        response.text = ""
+        response.json.return_value = {"id": repo_id, "sha": sha}
         return response
 
     with patch.object(get_session(), "request", side_effect=fake_request):
