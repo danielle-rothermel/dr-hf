@@ -1,27 +1,3 @@
-"""Named subsets of a pinned dataset, their derivations, and a registry.
-
-A named subset is an ordered tuple of native ids within one dataset pin,
-keyed by ``SplitKey(name, version)`` and carrying the ``Derivation`` that
-produced it. Membership is always expressed in native ids of the pin.
-
-Seeded rules (reproducible from the derivation and the parent alone):
-
-- Seeded order: start from the parent's ``native_ids`` in order, create
-  ``rng = random.Random(seed)`` (``seed`` is a non-negative int) and, for
-  ``i`` from ``len(ids) - 1`` down to ``1``, swap position ``i`` with
-  ``j = int(rng.random() * (i + 1))``. Only ``Random.random`` is used, the
-  part of ``random`` whose output Python guarantees across versions.
-- Seeded sample of ``size``: the first ``size`` ids of the seeded order.
-- Seeded partition with ordered shares ``(name_k, fraction_k)``: each
-  fraction is read as the exact decimal ``fractions.Fraction(repr(f))``;
-  the cumulative sums ``c_k`` must not exceed 1; part ``k`` is the slice
-  ``[floor(n * c_(k-1)), floor(n * c_k))`` of the seeded order, where ``n``
-  is the parent size and ``c_0 = 0``. Parts are disjoint; they cover the
-  parent exactly when the fractions sum to 1.
-- Every derived subset lists its members in the parent's order (for a
-  union: parents in the given order, first occurrence kept).
-"""
-
 from __future__ import annotations
 
 import json
@@ -73,12 +49,10 @@ _KEY_SEPARATOR = "@"
 _PIN_HASH_RE = re.compile(r"[0-9a-f]{64}")
 
 
-class SubsetConflictError(ValueError):
-    """A split key is already registered with a different content hash."""
+class SubsetConflictError(ValueError): ...
 
 
-class SubsetNotFoundError(LookupError):
-    """No subset is registered under the requested pin hash and key."""
+class SubsetNotFoundError(LookupError): ...
 
 
 def _validate_pin_hash(value: str) -> str:
@@ -93,8 +67,6 @@ KeyPart = Annotated[str, Field(min_length=1, pattern=r"^[^@]+$")]
 
 
 class SplitKey(BaseModel):
-    """The ``(name, version)`` key of a named subset within one pin."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: KeyPart
@@ -105,7 +77,6 @@ class SplitKey(BaseModel):
 
     @classmethod
     def parse(cls, text: str) -> SplitKey:
-        """Parse the ``"name@version"`` string form."""
         name, separator, version = text.partition(_KEY_SEPARATOR)
         if not separator:
             msg = f"split key must have the form 'name@version': {text!r}"
@@ -115,8 +86,6 @@ class SplitKey(BaseModel):
 
 @unique
 class DerivationKind(StrEnum):
-    """How a named subset was produced. Values are persisted literals."""
-
     ORIGIN_SPLIT = "origin_split"
     SEEDED_SAMPLE = "seeded_sample"
     SEEDED_PARTITION = "seeded_partition"
@@ -126,8 +95,6 @@ class DerivationKind(StrEnum):
 
 
 class PartitionShare(BaseModel):
-    """One named share of a seeded partition."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: KeyPart
@@ -156,16 +123,6 @@ _FIELDS_BY_KIND: dict[DerivationKind, frozenset[str]] = {
 
 
 class Derivation(BaseModel):
-    """The rule that produced a named subset from its parents.
-
-    Each kind sets exactly its own fields: ``origin_split`` for
-    ORIGIN_SPLIT; one parent, ``seed`` and ``size`` for SEEDED_SAMPLE; one
-    parent, ``seed``, the subset's ``fraction`` and the full ordered
-    ``partition`` for SEEDED_PARTITION; one parent and
-    ``excluded_native_ids`` for EXCLUSION; two or more parents for UNION;
-    nothing for EXPLICIT_IDS.
-    """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     kind: DerivationKind
@@ -205,8 +162,6 @@ class Derivation(BaseModel):
 
 
 class NamedSubset(BaseModel):
-    """An ordered set of native ids within one pin, with its derivation."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     pin_hash: PinHash
@@ -238,20 +193,16 @@ class NamedSubset(BaseModel):
 
     @property
     def content_hash(self) -> str:
-        """dr-serialize identity hash of pin hash, key, ids, and derivation."""
         return identity_hash(NAMED_SUBSET_SCHEMA, self.model_dump(mode="json"))
 
 
 def origin_key(split: str, pin: DatasetPin) -> SplitKey:
-    """Key of an origin split: ``(split, "origin-<first 7 sha chars>")``."""
     return SplitKey(name=split, version=f"origin-{pin.revision[:7]}")
 
 
 def origin_subsets(
     pin: DatasetPin, rows: Iterable[SourceRow]
 ) -> tuple[NamedSubset, ...]:
-    """One subset per origin split, ids in row order, splits in first-seen
-    order. Every row must carry ``pin``."""
     ids_by_split: dict[str, list[str]] = {}
     for row in rows:
         if row.pin != pin:
@@ -274,7 +225,6 @@ def origin_subsets(
 def seeded_sample(
     parent: NamedSubset, *, name: str, version: str, size: int, seed: int
 ) -> NamedSubset:
-    """``size`` ids chosen by the seeded order, listed in parent order."""
     if not 1 <= size <= len(parent.native_ids):
         msg = (
             f"size must be between 1 and {len(parent.native_ids)} "
@@ -302,10 +252,6 @@ def seeded_partition(
     version: str,
     seed: int,
 ) -> tuple[NamedSubset, ...]:
-    """Disjoint parts of ``parent`` cut from one seeded order.
-
-    ``names`` maps part name to fraction, in the order parts are cut.
-    """
     if not names:
         raise ValueError("names must contain at least one part")
     shares = tuple(
@@ -352,7 +298,6 @@ def exclude(
     version: str,
     native_ids: Iterable[str],
 ) -> NamedSubset:
-    """``parent`` without ``native_ids``; every excluded id must be in it."""
     excluded = set(native_ids)
     if not excluded:
         raise ValueError("native_ids to exclude must be non-empty")
@@ -375,7 +320,6 @@ def exclude(
 def union(
     parents: Iterable[NamedSubset], *, name: str, version: str
 ) -> NamedSubset:
-    """Ids of two or more same-pin parents, first occurrence kept."""
     parent_list = list(parents)
     if len(parent_list) < 2:  # noqa: PLR2004
         raise ValueError("union requires at least two parents")
@@ -402,10 +346,6 @@ def explicit(
     version: str,
     native_ids: Iterable[str],
 ) -> NamedSubset:
-    """A subset listing ``native_ids`` in the given order.
-
-    The ids are not checked against the dataset's rows.
-    """
     return NamedSubset(
         pin_hash=pin.pin_hash,
         key=SplitKey(name=name, version=version),
@@ -444,15 +384,6 @@ class _RegistryFile(BaseModel):
 
 
 class SubsetRegistry:
-    """Named subsets stored as one JSON file per pin hash in a directory.
-
-    The only rule: one ``(pin_hash, key)`` maps to one content hash.
-    Registering the same content again is a no-op; different content under
-    a registered key raises ``SubsetConflictError``. Files are replaced
-    atomically, but concurrent writers to one pin hash are not coordinated
-    and the last writer wins.
-    """
-
     def __init__(self, directory: str | os.PathLike[str]) -> None:
         self.directory = Path(directory)
 

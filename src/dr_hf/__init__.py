@@ -1,5 +1,3 @@
-"""Hugging Face Hub identity layer for dr-* research infrastructure."""
-
 from __future__ import annotations
 
 __version__ = "0.1.2"

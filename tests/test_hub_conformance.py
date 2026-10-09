@@ -1,5 +1,3 @@
-"""Conformance against pinned public Hub datasets (opt-in: pytest -m hub)."""
-
 from __future__ import annotations
 
 import pytest

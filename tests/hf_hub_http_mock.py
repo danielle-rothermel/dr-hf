@@ -87,7 +87,6 @@ def stub_hf_hub_http(
 def stub_revision_info(
     *, repo_id: str, sha: str | None
 ) -> Generator[list[tuple[str, str]]]:
-    """Answer every Hub GET with ``{"id": repo_id, "sha": sha}``."""
     calls: list[tuple[str, str]] = []
 
     def fake_request(method: str, url: str, **kwargs: object) -> MagicMock:

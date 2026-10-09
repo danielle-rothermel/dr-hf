@@ -1,5 +1,3 @@
-"""Dataset and model pins: Hub repositories resolved to commit SHAs."""
-
 from __future__ import annotations
 
 import re
@@ -42,8 +40,6 @@ RepoId = Annotated[str, Field(min_length=1, pattern=r"^\S+$")]
 
 
 class DatasetPin(BaseModel):
-    """One Hub dataset configuration fixed at one commit."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     repo_id: RepoId
@@ -53,13 +49,10 @@ class DatasetPin(BaseModel):
 
     @property
     def pin_hash(self) -> str:
-        """dr-serialize identity hash of the pin; subsets are scoped by it."""
         return identity_hash(DATASET_PIN_SCHEMA, self.model_dump(mode="json"))
 
 
 class ModelPin(BaseModel):
-    """One Hub model repository fixed at one commit."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     repo_id: RepoId
@@ -73,12 +66,6 @@ def resolve_dataset_pin(
     ref: str = "main",
     native_id_field: str,
 ) -> DatasetPin:
-    """Resolve a dataset branch, tag, or SHA to a ``DatasetPin``.
-
-    The commit SHA comes from ``HfApi.dataset_info(repo_id, revision=ref)``.
-    The config and native id field are recorded as given; they are checked
-    when rows are read.
-    """
     info = HfApi().dataset_info(repo_id, revision=ref)
     return DatasetPin(
         repo_id=repo_id,
@@ -89,10 +76,6 @@ def resolve_dataset_pin(
 
 
 def resolve_model_pin(repo_id: str, *, ref: str = "main") -> ModelPin:
-    """Resolve a model branch, tag, or SHA to a ``ModelPin``.
-
-    The commit SHA comes from ``HfApi.model_info(repo_id, revision=ref)``.
-    """
     info = HfApi().model_info(repo_id, revision=ref)
     return ModelPin(
         repo_id=repo_id,

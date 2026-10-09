@@ -1,5 +1,3 @@
-"""Reading pinned Hub datasets as rows tagged with origin split and id."""
-
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -16,13 +14,10 @@ if TYPE_CHECKING:
 __all__ = ["NativeIdError", "SourceRow", "read_rows", "split_sizes"]
 
 
-class NativeIdError(ValueError):
-    """The native id field is missing, null, or not unique within a split."""
+class NativeIdError(ValueError): ...
 
 
 class SourceRow(BaseModel):
-    """One dataset row with its pin, origin split, and native id."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     pin: DatasetPin
@@ -34,15 +29,6 @@ class SourceRow(BaseModel):
 def read_rows(
     pin: DatasetPin, *, splits: Sequence[str] | None = None
 ) -> Iterator[SourceRow]:
-    """Yield every row of the requested splits at ``pin.revision``.
-
-    With ``splits=None`` every split the dataset provides is read, in the
-    order ``datasets`` reports them. Native ids are validated for every
-    requested split before the first row is yielded: the field must exist,
-    values must be non-null, and their ``str`` forms must be unique within a
-    split. With ``native_id_field == ROW_INDEX`` the id is
-    ``f"{origin_split}:{row_position}"``.
-    """
     loaded = _load_splits(pin, splits)
     ids_by_split = {
         split: _native_ids(pin, split, dataset)
@@ -61,7 +47,6 @@ def read_rows(
 
 
 def split_sizes(pin: DatasetPin) -> Mapping[str, int]:
-    """Return the row count of every split the dataset provides."""
     return {
         split: dataset.num_rows
         for split, dataset in _load_splits(pin, None).items()

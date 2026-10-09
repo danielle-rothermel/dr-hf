@@ -50,9 +50,6 @@ def parent(pin: DatasetPin) -> NamedSubset:
     return explicit(pin, name="all", version="v1", native_ids=IDS)
 
 
-# ------------------------------------------------------- persisted literals
-
-
 def test_identity_schema_literals_are_pinned() -> None:
     assert DATASET_PIN_SCHEMA == "dr_hf.dataset_pin"
     assert NAMED_SUBSET_SCHEMA == "dr_hf.named_subset"
@@ -99,9 +96,6 @@ def test_pin_and_subset_hashes_are_pinned(
     )
 
 
-# ---------------------------------------------------------------- split key
-
-
 def test_split_key_string_round_trip() -> None:
     key = SplitKey(name="test", version="origin-91c54ad")
     assert str(key) == "test@origin-91c54ad"
@@ -112,9 +106,6 @@ def test_split_key_string_round_trip() -> None:
 def test_split_key_parse_rejects_malformed(text: str) -> None:
     with pytest.raises(ValueError):  # noqa: PT011
         SplitKey.parse(text)
-
-
-# ------------------------------------------------------------ derivations
 
 
 def test_origin_subsets_group_rows_by_split(pin: DatasetPin) -> None:
@@ -142,8 +133,6 @@ def test_origin_subsets_reject_foreign_rows(pin: DatasetPin) -> None:
 
 def test_seeded_sample_rule_is_pinned(parent: NamedSubset) -> None:
     sample = seeded_sample(parent, name="s", version="v1", size=4, seed=0)
-    # Seeded order for seed 0 is 9 4 0 5 2 7 1 3 6 8; the first four ids
-    # are listed in parent order.
     assert sample.native_ids == ("0", "4", "5", "9")
     assert sample.derivation == Derivation(
         kind=DerivationKind.SEEDED_SAMPLE,
@@ -182,7 +171,6 @@ def test_seeded_partition_rule_is_pinned(parent: NamedSubset) -> None:
     parts = seeded_partition(
         parent, names={"a": 0.5, "b": 0.3, "c": 0.2}, version="v1", seed=0
     )
-    # Cuts of the seed-0 order at floor(10 * 0.5) and floor(10 * 0.8).
     assert [p.native_ids for p in parts] == [
         ("0", "2", "4", "5", "9"),
         ("1", "3", "7"),
@@ -281,9 +269,6 @@ def test_sample_size_must_match_member_count(parent: NamedSubset) -> None:
     tampered = {**sample.model_dump(), "native_ids": ("0",)}
     with pytest.raises(ValidationError, match="not size"):
         NamedSubset.model_validate(tampered)
-
-
-# ----------------------------------------------------------------- registry
 
 
 def test_registry_register_get_keys(

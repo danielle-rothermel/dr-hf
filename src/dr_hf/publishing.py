@@ -1,5 +1,3 @@
-"""Publishing a local model directory to the Hub with card and provenance."""
-
 from __future__ import annotations
 
 import json
@@ -31,17 +29,10 @@ _MAIN_BRANCH: Final = "main"
 _IGNORED_TOP_LEVEL_DIRS: Final = frozenset({".git", ".cache"})
 
 
-class TagConflictError(RuntimeError):
-    """A requested tag already points at a different commit."""
+class TagConflictError(RuntimeError): ...
 
 
 class ModelProvenance(BaseModel):
-    """Where a published model came from and how it was verified.
-
-    ``verification`` must be strict JSON (no NaN or infinity, only JSON
-    types); it is written verbatim into the ``provenance.json`` sidecar.
-    """
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     source_repo_id: str = Field(min_length=1)
@@ -72,20 +63,6 @@ def publish_model(  # noqa: PLR0913
     private: bool,
     commit_message: str,
 ) -> ModelPin:
-    """Upload ``local_dir`` to ``branch`` of a Hub model repo in one commit.
-
-    Steps: ``create_repo(exist_ok=True)`` (``private`` applies only when the
-    repo is created), ``create_branch(exist_ok=True)`` unless ``branch`` is
-    ``main``, then one ``create_commit`` holding every file under
-    ``local_dir`` (skipping top-level ``.git`` and ``.cache``), the card as
-    ``README.md``, and ``provenance.json``. ``local_dir`` must not contain
-    either of those two files itself. Each tag is then created at the
-    resulting commit; an existing tag at that commit is accepted and an
-    existing tag elsewhere raises ``TagConflictError`` (the commit has
-    already landed by then). Unchanged uploads create no commit and return
-    the branch head. Authentication uses the standard ``huggingface_hub``
-    token resolution.
-    """
     root = Path(local_dir)
     files = _local_files(root)
     if not commit_message.strip():
