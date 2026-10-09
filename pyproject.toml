@@ -47,7 +47,6 @@ packages = ["src/dr_hf"]
 
 [dependency-groups]
 dev = [
-    "pdoc>=16.0.0",
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
     "ruff>=0.16.10",

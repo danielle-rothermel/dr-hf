@@ -99,8 +99,6 @@ pin = publish_model(
 ## Documentation
 
 - [Definitions site](https://danielle-rothermel.github.io/dr-hf/) — shared vocabulary and binding contracts ([terms](.defs/terms.toml), [contracts](.defs/contracts.toml); agents read the TOML directly)
-- Module guides: [pins](docs/pins.md) | [datasets](docs/datasets.md) | [subsets](docs/subsets.md) | [publishing](docs/publishing.md) | [branches](docs/branches.md) | [io](docs/io.md) | [location](docs/location.md) | [models](docs/models.md)
-- [API reference](docs/api.md) (`uv run pdoc dr_hf`)
 - [Changelog](CHANGELOG.md)
 
 ## Development

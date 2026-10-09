@@ -34,6 +34,9 @@
 
 ### Removed
 
+- The `docs/` module guides and generated API reference, and the `pdoc`
+  dev dependency; README and CHANGELOG are the only prose documentation,
+  with terms and contracts in `.defs`.
 - `download_dataset`, `load_or_download_dataset`, and `sanitize_repo_name`
   (replaced by `read_rows`).
 - `dr_hf.weights`, `dr_hf.checkpoints`, `dr_hf.configs`, `dr_hf._torch`, and
