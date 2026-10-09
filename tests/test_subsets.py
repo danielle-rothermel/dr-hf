@@ -132,6 +132,9 @@ def test_origin_subsets_reject_foreign_rows(pin: DatasetPin) -> None:
 
 
 def test_seeded_sample_rule_is_pinned(parent: NamedSubset) -> None:
+    # Golden: the seed-0 order over the ten parent ids is 9 4 0 5 2 7 1 3 6 8,
+    # produced by the Random(seed).random() shuffle rule; the first four ids
+    # of that order are listed back in parent order.
     sample = seeded_sample(parent, name="s", version="v1", size=4, seed=0)
     assert sample.native_ids == ("0", "4", "5", "9")
     assert sample.derivation == Derivation(
@@ -168,6 +171,8 @@ def test_seeded_sample_rejects_negative_seed(parent: NamedSubset) -> None:
 
 
 def test_seeded_partition_rule_is_pinned(parent: NamedSubset) -> None:
+    # Golden: parts are consecutive cuts of the same seed-0 order at
+    # floor(10 * 0.5) and floor(10 * 0.8), each listed back in parent order.
     parts = seeded_partition(
         parent, names={"a": 0.5, "b": 0.3, "c": 0.2}, version="v1", seed=0
     )
